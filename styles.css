@@ -1,4 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import url('docs/part-01.css');
+@import url('docs/part-02.css');
 
 :root { --ink:#121817; --paper:#f2f1eb; --muted:#777d79; --line:#c7cbc3; --panel:#e7e8e1; --lime:#c8e86b; --orange:#ff895c; --cyan:#80dfe0; --blue:#91b6ff; --serif:Georgia, 'Times New Roman', serif; --mono:'DM Mono', monospace; --sans:'Manrope', sans-serif; }
 * { box-sizing:border-box; }
