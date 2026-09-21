@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CloudNet DevOps Platform Part 13: Azure hub-and-spoke architecture">
+  <title>Part 13 / Hub-Spoke | CloudNet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="doc-header"><a class="brand" href="../index.html" aria-label="Back to CloudNet architecture"><span class="brand-mark"><i></i><i></i><i></i></span><span>cloudnet<span class="orange">.</span></span></a><nav class="header-nav" aria-label="Documentation navigation"><a href="../index.html">Architecture</a><a href="part-01-foundation.html">Part 01</a><a href="part-02-vms.html">Part 02</a><a href="part-03-nsg.html">Part 03</a><a href="part-04-private-communication.html">Part 04</a><a href="part-05-routing.html">Part 05</a><a href="part-06-nat.html">Part 06</a><a href="part-07-load-balancer.html">Part 07</a><a href="part-08-second-vnet.html">Part 08</a><a href="part-09-private-endpoint.html">Part 09</a><a href="part-10-private-dns.html">Part 10</a><a href="part-11-application-gateway.html">Part 11</a><a href="part-12-azure-firewall.html">Part 12</a><a class="active" href="#top">Part 13</a><span class="status"><b></b> Architecture lab</span></nav></header>
+    <main id="top">
+      <section class="doc-hero"><div class="hero-copy"><div class="eyebrow"><span></span> Learning path / 13 of 18</div><h1>Connect the<br><em>whole platform.</em></h1><p>Bring the hub, production spoke, and development spoke together with deliberate peering, shared services, route control, and environment boundaries.</p><div class="hero-meta"><span>Difficulty <strong>Advanced</strong></span><span>Scope <strong>Enterprise topology</strong></span><span>Outcome <strong>Hub + 2 spokes</strong></span></div></div><div class="hero-card hub-hero-card"><span class="card-label">Part 13 / target state</span><div class="hub-hero-stack"><div class="spoke prod">PROD <small>10.10.0.0/16</small></div><i></i><div class="hub-center">HUB <small>10.0.0.0/16</small></div><i></i><div class="spoke dev">DEV <small>10.20.0.0/16</small></div><div class="hub-services">Firewall · Bastion · DNS</div></div><span class="card-foot"><b>13</b> shared control plane / routed spokes</span></div></section>
+      <div class="progress"><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="current"></span><small>13 / 18</small></div>
+
+      <section class="content-section" id="model"><div class="section-index">01 <span>Hub-spoke model</span></div><div class="section-body"><h2>Centralize what<br>should be shared.</h2><p class="lead">The hub owns shared network services. Spokes own workloads. This separates platform governance from application lifecycle while preserving controlled private connectivity.</p><div class="hub-spoke-map"><div class="spoke-card prod-spoke"><span>PRODUCTION SPOKE</span><b>vnet-cloudnet-prod</b><code>10.10.0.0/16</code><small>web · API · data</small></div><div class="spoke-link"><i></i><span>peering</span><i></i></div><div class="hub-card"><span>SHARED HUB</span><b>vnet-cloudnet-hub</b><code>10.0.0.0/16</code><small>Firewall · Bastion · DNS</small></div><div class="spoke-link"><i></i><span>peering</span><i></i></div><div class="spoke-card dev-spoke"><span>DEVELOPMENT SPOKE</span><b>vnet-cloudnet-dev</b><code>10.20.0.0/16</code><small>test workloads</small></div></div><div class="callout green"><span>↗</span><p><strong>Spokes should not become a mesh by accident.</strong> Shared inspection and services live in the hub; routes define how spoke traffic reaches them.</p></div></div></section>
+
+      <section class="content-section" id="roles"><div class="section-index">02 <span>Network roles</span></div><div class="section-body"><h2>Every VNet has<br>a clear job.</h2><p class="lead">A good topology is easier to operate because address space, resources, and ownership are explicit.</p><div class="role-grid hub-roles"><div><b>Hub VNet</b><span>10.0.0.0/16</span><small>Firewall, Bastion, Private DNS, shared ingress</small></div><div><b>Production</b><span>10.10.0.0/16</span><small>Customer-facing workloads and data</small></div><div><b>Development</b><span>10.20.0.0/16</span><small>Build, test, and pre-release workloads</small></div><div><b>Future testing</b><span>10.30.0.0/16</span><small>Reserved without overlap</small></div></div><div class="address-strip"><span>Unique CIDRs are the contract</span><code>10.0</code><code>10.10</code><code>10.20</code><code>10.30</code></div></div></section>
+
+      <section class="content-section" id="services"><div class="section-index">03 <span>Shared services</span></div><div class="section-body"><h2>The hub is more<br>than a VNet.</h2><p class="lead">Shared services reduce duplication and make central policy possible. Keep the workload subnets in the spokes.</p><div class="service-grid"><div><b>Azure Firewall</b><span>Central transit inspection</span><code>AzureFirewallSubnet</code></div><div><b>Azure Bastion</b><span>Private administration</span><code>AzureBastionSubnet</code></div><div><b>Private DNS</b><span>Shared name resolution</span><code>privatelink.*</code></div><div><b>Gateway ingress</b><span>Shared application edge</span><code>App Gateway</code></div></div><div class="service-boundary"><span>Ownership boundary</span><strong>Platform team owns hub services. Application teams own spoke workloads.</strong></div></div></section>
+
+      <section class="content-section" id="peering"><div class="section-index">04 <span>Peering links</span></div><div class="section-body"><h2>Peering is<br>two-sided.</h2><p class="lead">Create a peering object in each VNet. A single link on one side is not a complete bidirectional relationship.</p><div class="peering-links"><div><span>Production → Hub</span><b>prod-to-hub</b><code>Allow forwarded traffic</code><small>Use gateway transit only when designed.</small></div><div class="peering-state"><i></i><strong>CONNECTED</strong><i></i><small>two peering objects</small></div><div><span>Hub → Production</span><b>hub-to-prod</b><code>Allow forwarded traffic</code><small>Return path must exist.</small></div></div><div class="peering-links dev-links"><div><span>Development → Hub</span><b>dev-to-hub</b><code>same hub boundary</code></div><div class="peering-state"><i></i><strong>CONNECTED</strong><i></i></div><div><span>Hub → Development</span><b>hub-to-dev</b><code>same hub boundary</code></div></div></div></section>
+
+      <section class="content-section" id="routing"><div class="section-index">05 <span>Transit routing</span></div><div class="section-body"><h2>Peering connects.<br>Routes control transit.</h2><p class="lead">VNet peering provides private reachability, but centralized inspection requires UDRs that send spoke destinations to the firewall private IP.</p><div class="transit-flow"><div><span>PROD</span><code>10.10.1.4</code></div><i></i><div class="route-box"><span>UDR on prod</span><b>10.20.0.0/16</b><small>next hop 10.0.1.4</small></div><i></i><div class="firewall-box"><span>AZURE FIREWALL</span><b>10.0.1.4</b><small>inspect + forward</small></div><i></i><div><span>DEV</span><code>10.20.1.4</code></div></div><div class="transit-note"><span>Important limitation</span><p>Azure VNet peering is not automatically a transitive router. Design the hub route path and forwarded-traffic settings deliberately.</p></div></div></section>
+
+      <section class="content-section" id="build"><div class="section-index">06 <span>Build sequence</span></div><div class="section-body"><div class="build-heading"><div><h2>Assemble the<br>topology.</h2><p class="lead">Build the hub foundation, peer each spoke, then add narrow transit routes before introducing broader enterprise policy.</p></div><div class="tabs" role="tablist"><button class="tab active" data-tab="portal" role="tab">Portal path</button><button class="tab" data-tab="cli" role="tab">CLI inventory</button></div></div><div class="tab-panel active" data-panel="portal"><ol class="steps"><li><span>01</span><div><h3>Confirm address spaces</h3><p>Hub <code>10.0.0.0/16</code>, production <code>10.10.0.0/16</code>, and development <code>10.20.0.0/16</code> must not overlap.</p></div></li><li><span>02</span><div><h3>Prepare shared subnets</h3><p>Reserve <code>AzureFirewallSubnet</code>, <code>AzureBastionSubnet</code>, and any shared gateway or DNS design before deployment.</p></div></li><li><span>03</span><div><h3>Create both peering directions</h3><p>Peer production↔hub and development↔hub. Enable the settings required for your firewall transit design.</p></div></li><li><span>04</span><div><h3>Apply narrow route tables</h3><p>Send one test destination, such as <code>10.20.0.0/16</code>, to the firewall private IP before widening route scope.</p></div></li><li><span>05</span><div><h3>Verify effective routes</h3><p>Check the NIC route view, peering state, firewall logs, NSGs, and the application path together.</p></div></li></ol></div><div class="tab-panel" data-panel="cli"><div class="command-block"><div class="command-top"><span>Azure CLI / topology inventory</span><button class="copy-all" type="button">Copy all</button></div><pre><code>az network vnet peering list \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-prod \
+  --output table
+
+az network vnet peering list \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-hub \
+  --output table
+
+az network vnet list \
+  --resource-group rg-cloudnet-prod \
+  --query "[].{Name:name,AddressSpace:addressSpace.addressPrefixes[0]}" \
+  --output table
+
+az network route-table list \
+  --resource-group rg-cloudnet-prod \
+  --output table</code></pre><span class="copy-note">Use the actual hub resource group if shared services are managed separately.</span></div></div></div></section>
+
+      <section class="content-section" id="governance"><div class="section-index">07 <span>Governance</span></div><div class="section-body"><h2>Topology is<br>an operating model.</h2><p class="lead">Hub-and-spoke is not only a diagram. It defines who owns routes, firewall policy, DNS, peering, and workload boundaries.</p><div class="governance-grid"><div><b>Platform team</b><span>Hub services</span><small>Firewall, Bastion, DNS, gateway standards</small></div><div><b>Network team</b><span>Transit</span><small>Peering, route tables, IP plan, effective routes</small></div><div><b>Application team</b><span>Spoke workloads</span><small>VMs, services, health, app NSGs</small></div><div><b>Security team</b><span>Policy</span><small>Least privilege, logs, exceptions, reviews</small></div></div><div class="governance-line"><span>Shared hub</span><b>policy</b><span>→</span><b>spoke isolation</b><span>→</span><b>auditable transit</b></div></div></section>
+
+      <section class="content-section" id="verify"><div class="section-index">08 <span>Verification</span></div><div class="section-body"><h2>Verify the<br>enterprise path.</h2><p class="lead">A complete check confirms unique CIDRs, two-sided peerings, shared hub services, and intended route steering.</p><div class="verify-layout"><div class="command-block compact"><div class="command-top"><span>Azure CLI / evidence</span><button class="copy-command" type="button" data-copy="az network vnet list --resource-group rg-cloudnet-prod --output table; az network vnet peering list --resource-group rg-cloudnet-prod --vnet-name vnet-cloudnet-prod --output table; az network vnet peering list --resource-group rg-cloudnet-prod --vnet-name vnet-cloudnet-dev --output table; az network route-table list --resource-group rg-cloudnet-prod --output table">Copy commands</button></div><pre><code>az network vnet list \
+  --resource-group rg-cloudnet-prod \
+  --output table
+
+az network vnet peering list \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-prod \
+  --output table
+
+az network vnet peering list \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-dev \
+  --output table
+
+az network route-table list \
+  --resource-group rg-cloudnet-prod \
+  --output table</code></pre></div><div class="result-card"><div class="result-top"><span class="result-dot"></span> Expected topology</div><div class="result-row"><span>Hub</span><code>10.0.0.0/16</code></div><div class="result-row"><span>Production</span><code>10.10.0.0/16</code></div><div class="result-row"><span>Development</span><code>10.20.0.0/16</code></div><div class="result-row"><span>Peer state</span><code>Connected / both sides</code></div><div class="result-row"><span>Transit</span><code>UDR → Firewall</code></div></div></div></div></section>
+
+      <section class="content-section" id="complete"><div class="section-index">09 <span>Checkpoint</span></div><div class="section-body"><h2>Can you explain<br>the shape?</h2><p class="lead">Do not move on until you can explain why the hub exists, how spokes connect, and where routes and policy are owned.</p><div class="completion checklist-light"><label><input type="checkbox"><span><b>Hub VNet planned</b><small>10.0.0.0/16</small></span></label><label><input type="checkbox"><span><b>Shared services assigned</b><small>Firewall · Bastion · DNS · gateway</small></span></label><label><input type="checkbox"><span><b>Spoke peerings are two-sided</b><small>production and development</small></span></label><label><input type="checkbox"><span><b>Transit route understood</b><small>spoke → UDR → firewall → spoke</small></span></label><label><input type="checkbox"><span><b>Ownership documented</b><small>platform · network · app · security</small></span></label></div><div class="next-part"><span class="eyebrow"><span></span> Next / Part 14</span><h3>Azure Monitoring</h3><p>Collect platform, network, firewall, and application signals so the architecture can be operated with evidence.</p></div></div></section>
+    </main>
+    <footer class="doc-footer"><a href="part-12-azure-firewall.html">← Part 12</a><span>CloudNet DevOps Platform / Part 13</span><a href="../index.html">Architecture →</a></footer>
+  </div>
+  <script src="part-13.js"></script>
+</body>
+</html>
