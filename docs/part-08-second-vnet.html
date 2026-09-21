@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CloudNet DevOps Platform Part 08: create a second Azure VNet for development">
+  <title>Part 08 / Second VNet | CloudNet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="doc-header"><a class="brand" href="../index.html" aria-label="Back to CloudNet architecture"><span class="brand-mark"><i></i><i></i><i></i></span><span>cloudnet<span class="orange">.</span></span></a><nav class="header-nav" aria-label="Documentation navigation"><a href="../index.html">Architecture</a><a href="part-01-foundation.html">Part 01</a><a href="part-02-vms.html">Part 02</a><a href="part-03-nsg.html">Part 03</a><a href="part-04-private-communication.html">Part 04</a><a href="part-05-routing.html">Part 05</a><a href="part-06-nat.html">Part 06</a><a href="part-07-load-balancer.html">Part 07</a><a class="active" href="#top">Part 08</a><span class="status"><b></b> Environment lab</span></nav></header>
+    <main id="top">
+      <section class="doc-hero"><div class="hero-copy"><div class="eyebrow"><span></span> Learning path / 08 of 18</div><h1>Make room<br><em>for dev.</em></h1><p>Create a second, non-overlapping Azure VNet for development. This is the clean foundation required before connecting environments with VNet peering.</p><div class="hero-meta"><span>Difficulty <strong>Foundation</strong></span><span>Scope <strong>Environment design</strong></span><span>Outcome <strong>vnet-cloudnet-dev</strong></span></div></div><div class="hero-card vnet-hero-card"><span class="card-label">Part 08 / target state</span><div class="vnet-hero-stack"><div class="prod-block">PROD <small>10.10.0.0/16</small></div><i></i><div class="dev-block">DEV <small>10.20.0.0/16</small></div><div class="dev-subnets"><span>snet-frontend-dev</span><span>snet-backend-dev</span></div></div><span class="card-foot"><b>08</b> isolated environments / ready to peer</span></div></section>
+      <div class="progress"><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="current"></span><small>08 / 18</small></div>
+
+      <section class="content-section" id="why"><div class="section-index">01 <span>Why a second VNet</span></div><div class="section-body"><h2>Separate the<br>environments.</h2><p class="lead">Production and development should have distinct network boundaries. A second VNet gives development its own address space, subnets, security policy, and lifecycle.</p><div class="environment-compare"><article><span>PRODUCTION</span><h3>vnet-cloudnet-prod</h3><code>10.10.0.0/16</code><div><b>snet-frontend</b><small>10.10.1.0/24</small></div><div><b>snet-backend</b><small>10.10.2.0/24</small></div></article><div class="isolation-mark"><i></i><span>isolated</span><i></i></div><article class="dev-card"><span>DEVELOPMENT</span><h3>vnet-cloudnet-dev</h3><code>10.20.0.0/16</code><div><b>snet-frontend-dev</b><small>10.20.1.0/24</small></div><div><b>snet-backend-dev</b><small>10.20.2.0/24</small></div></article></div><div class="callout green"><span>↗</span><p><strong>Isolation first, peering later.</strong> The VNets start independent. Part 09 will deliberately connect them with VNet peering and controlled routes.</p></div></div></section>
+
+      <section class="content-section" id="addressing"><div class="section-index">02 <span>Address planning</span></div><div class="section-body"><h2>Non-overlap is<br>non-negotiable.</h2><p class="lead">Peering and routing require unique address spaces. Production uses <code>10.10.0.0/16</code>; development uses <code>10.20.0.0/16</code>.</p><div class="range-board"><div class="range-card prod-range"><span>PROD</span><b>10.10.0.0/16</b><small>10.10.0.0 → 10.10.255.255</small></div><div class="range-gap"><strong>≠</strong><span>no overlap</span></div><div class="range-card dev-range"><span>DEV</span><b>10.20.0.0/16</b><small>10.20.0.0 → 10.20.255.255</small></div></div><div class="future-ranges"><span class="section-kicker">Reserved for later</span><div><b>10.0.0.0/16</b><small>Hub VNet</small></div><div><b>10.30.0.0/16</b><small>Testing VNet</small></div></div></div></section>
+
+      <section class="content-section" id="subnets"><div class="section-index">03 <span>Development plan</span></div><div class="section-body"><h2>Give dev the<br>same shape.</h2><p class="lead">Use matching frontend and backend layers with a development-specific name. Repeated structure makes environments easier to compare and automate.</p><div class="dev-subnet-grid"><div><span>FRONTEND</span><b>snet-frontend-dev</b><code>10.20.1.0/24</code><small>web and test clients</small></div><div><span>BACKEND</span><b>snet-backend-dev</b><code>10.20.2.0/24</code><small>development APIs</small></div><div><span>DATABASE</span><b>snet-database-dev</b><code>10.20.3.0/24</code><small>test data services</small></div><div><span>MANAGEMENT</span><b>snet-management-dev</b><code>10.20.10.0/24</code><small>operations tooling</small></div></div><div class="naming-note"><span>Naming pattern</span><code>vnet-cloudnet-{environment}</code><code>snet-{tier}-{environment}</code></div></div></section>
+
+      <section class="content-section" id="build"><div class="section-index">04 <span>Build sequence</span></div><div class="section-body"><div class="build-heading"><div><h2>Create the<br>development VNet.</h2><p class="lead">Build the VNet and four subnets without adding VMs yet. The objective is a clean network boundary ready for Part 09.</p></div><div class="tabs" role="tablist"><button class="tab active" data-tab="portal" role="tab">Portal path</button><button class="tab" data-tab="cli" role="tab">Azure CLI</button></div></div><div class="tab-panel active" data-panel="portal"><ol class="steps"><li><span>01</span><div><h3>Create the VNet</h3><p>Open <b>Virtual networks → Create</b>. Use resource group <code>rg-cloudnet-prod</code>, name <code>vnet-cloudnet-dev</code>, the same region, and IPv4 address space <code>10.20.0.0/16</code>.</p></div></li><li><span>02</span><div><h3>Add the frontend subnet</h3><p>Create <code>snet-frontend-dev</code> with address range <code>10.20.1.0/24</code>.</p></div></li><li><span>03</span><div><h3>Add the backend subnet</h3><p>Create <code>snet-backend-dev</code> with address range <code>10.20.2.0/24</code>.</p></div></li><li><span>04</span><div><h3>Add database and management</h3><p>Create <code>snet-database-dev</code> at <code>10.20.3.0/24</code> and <code>snet-management-dev</code> at <code>10.20.10.0/24</code>. Stop here: no peering yet.</p></div></li></ol></div><div class="tab-panel" data-panel="cli"><div class="command-block"><div class="command-top"><span>Azure CLI / development VNet</span><button class="copy-all" type="button">Copy all</button></div><pre><code>az network vnet create \
+  --resource-group rg-cloudnet-prod \
+  --name vnet-cloudnet-dev \
+  --location centralindia \
+  --address-prefix 10.20.0.0/16
+
+az network vnet subnet create \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-dev \
+  --name snet-frontend-dev \
+  --address-prefixes 10.20.1.0/24
+
+az network vnet subnet create \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-dev \
+  --name snet-backend-dev \
+  --address-prefixes 10.20.2.0/24
+
+az network vnet subnet create \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-dev \
+  --name snet-database-dev \
+  --address-prefixes 10.20.3.0/24
+
+az network vnet subnet create \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-dev \
+  --name snet-management-dev \
+  --address-prefixes 10.20.10.0/24</code></pre><span class="copy-note">Replace <code>centralindia</code> with your selected Azure region if needed.</span></div></div></div></section>
+
+      <section class="content-section" id="verify"><div class="section-index">05 <span>Verification</span></div><div class="section-body"><h2>Prove the ranges<br>do not overlap.</h2><p class="lead">Use Azure CLI to list both VNets and the development subnets. Compare the address spaces before moving to peering.</p><div class="verify-layout"><div class="command-block compact"><div class="command-top"><span>Azure CLI / evidence</span><button class="copy-command" type="button" data-copy="az network vnet list --resource-group rg-cloudnet-prod --query '[].{Name:name,AddressSpace:addressSpace.addressPrefixes[0]}' --output table; az network vnet subnet list --resource-group rg-cloudnet-prod --vnet-name vnet-cloudnet-dev --output table">Copy commands</button></div><pre><code>az network vnet list \
+  --resource-group rg-cloudnet-prod \
+  --query "[].{Name:name,AddressSpace:addressSpace.addressPrefixes[0]}" \
+  --output table
+
+az network vnet subnet list \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-dev \
+  --output table</code></pre></div><div class="result-card"><div class="result-top"><span class="result-dot"></span> Expected development ranges</div><div class="result-row"><span>VNet</span><code>10.20.0.0/16</code></div><div class="result-row"><span>Frontend</span><code>10.20.1.0/24</code></div><div class="result-row"><span>Backend</span><code>10.20.2.0/24</code></div><div class="result-row"><span>Database</span><code>10.20.3.0/24</code></div><div class="result-row"><span>Management</span><code>10.20.10.0/24</code></div></div></div></div></section>
+
+      <section class="content-section" id="routing"><div class="section-index">06 <span>Isolation</span></div><div class="section-body"><h2>Separate means<br>separate.</h2><p class="lead">Before peering exists, a production VM cannot use a development private address. The networks are intentionally independent.</p><div class="isolation-flow"><div><span>Production</span><code>10.10.1.4</code></div><i></i><div class="blocked"><span>NO PEERING</span><b>isolated</b><small>Part 09 will connect them</small></div><i></i><div><span>Development</span><code>10.20.1.4</code></div></div><div class="model-note"><span>Key idea</span><p>Creating two VNets does not connect them. VNet peering is a separate relationship with its own configuration and routing behavior.</p></div></div></section>
+
+      <section class="content-section" id="prepare"><div class="section-index">07 <span>Peering preparation</span></div><div class="section-body"><h2>Build the pair<br>before the bridge.</h2><p class="lead">Part 09 will create two peering links: production to development and development to production. Both sides must be configured.</p><div class="peering-preview"><div><span>VNet A</span><b>vnet-cloudnet-prod</b><code>10.10.0.0/16</code><small>peering: prod-to-dev</small></div><div class="bridge"><i></i><strong>Part 09</strong><i></i><span>VNet peering</span></div><div><span>VNet B</span><b>vnet-cloudnet-dev</b><code>10.20.0.0/16</code><small>peering: dev-to-prod</small></div></div><div class="callout"><span>!</span><p><strong>Do not use overlapping address space.</strong> Once networks overlap, peering and predictable routing become impossible without redesign.</p></div></div></section>
+
+      <section class="content-section" id="complete"><div class="section-index">08 <span>Checkpoint</span></div><div class="section-body"><h2>Can you explain<br>the boundary?</h2><p class="lead">Do not move on until you can identify both VNet ranges, explain why they do not communicate yet, and describe why peering needs unique CIDRs.</p><div class="completion checklist-light"><label><input type="checkbox"><span><b>Development VNet created</b><small>vnet-cloudnet-dev / 10.20.0.0/16</small></span></label><label><input type="checkbox"><span><b>Four dev subnets created</b><small>frontend · backend · database · management</small></span></label><label><input type="checkbox"><span><b>Ranges verified</b><small>no overlap with 10.10.0.0/16</small></span></label><label><input type="checkbox"><span><b>Isolation understood</b><small>no peering exists yet</small></span></label><label><input type="checkbox"><span><b>Ready for VNet peering</b><small>Part 09</small></span></label></div><div class="next-part"><span class="eyebrow"><span></span> Next / Part 09</span><h3>VNet Peering</h3><p>Connect production and development privately, inspect the peering state, and test cross-VNet routing.</p></div></div></section>
+    </main>
+    <footer class="doc-footer"><a href="part-07-load-balancer.html">← Part 07</a><span>CloudNet DevOps Platform / Part 08</span><a href="../index.html">Architecture →</a></footer>
+  </div>
+  <script src="part-08.js"></script>
+</body>
+</html>
