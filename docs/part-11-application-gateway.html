@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CloudNet DevOps Platform Part 11: Azure Application Gateway and Layer 7 ingress">
+  <title>Part 11 / Application Gateway | CloudNet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="doc-header"><a class="brand" href="../index.html" aria-label="Back to CloudNet architecture"><span class="brand-mark"><i></i><i></i><i></i></span><span>cloudnet<span class="orange">.</span></span></a><nav class="header-nav" aria-label="Documentation navigation"><a href="../index.html">Architecture</a><a href="part-01-foundation.html">Part 01</a><a href="part-02-vms.html">Part 02</a><a href="part-03-nsg.html">Part 03</a><a href="part-04-private-communication.html">Part 04</a><a href="part-05-routing.html">Part 05</a><a href="part-06-nat.html">Part 06</a><a href="part-07-load-balancer.html">Part 07</a><a href="part-08-second-vnet.html">Part 08</a><a href="part-09-private-endpoint.html">Part 09</a><a href="part-10-private-dns.html">Part 10</a><a class="active" href="#top">Part 11</a><span class="status"><b></b> Layer 7 lab</span></nav></header>
+    <main id="top">
+      <section class="doc-hero"><div class="hero-copy"><div class="eyebrow"><span></span> Learning path / 11 of 18</div><h1>Move ingress<br><em>up a layer.</em></h1><p>Replace direct public VM access with an HTTP-aware Application Gateway that terminates TLS, probes backends, and routes requests at Layer 7.</p><div class="hero-meta"><span>Difficulty <strong>Advanced</strong></span><span>Scope <strong>Web ingress</strong></span><span>Outcome <strong>appgw-cloudnet-prod</strong></span></div></div><div class="hero-card agw-hero-card"><span class="card-label">Part 11 / target state</span><div class="agw-hero-stack"><div class="agw-public">Internet <small>HTTPS / host / path</small></div><i></i><div class="agw-gateway">Application Gateway <small>WAF / TLS termination</small></div><i></i><div class="agw-backends"><span>backend pool</span><b>vm-web-01</b><b>vm-api-01</b></div></div><span class="card-foot"><b>11</b> Layer 7 ingress / private backends</span></div></section>
+      <div class="progress"><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="current"></span><small>11 / 18</small></div>
+
+      <section class="content-section" id="why"><div class="section-index">01 <span>Why gateway</span></div><div class="section-body"><h2>One web edge,<br>many decisions.</h2><p class="lead">Application Gateway is a Layer 7 reverse proxy. It understands HTTP and HTTPS requests, unlike the Layer 4 Load Balancer from Part 07.</p><div class="layer-compare"><article><span>LOAD BALANCER / L4</span><h3>Flow distribution</h3><div><b>TCP / UDP</b><small>frontend port → backend port</small></div><p>Routes connections without inspecting HTTP paths or hostnames.</p></article><article class="agw-card"><span>APPLICATION GATEWAY / L7</span><h3>Request routing</h3><div><b>Host / path / TLS</b><small>/api → API, / → web</small></div><p>Terminates TLS, probes HTTP, routes requests, and can attach WAF.</p></article></div><div class="callout green"><span>↗</span><p><strong>Production direction:</strong> Internet traffic terminates at the gateway. Backend VMs become private targets instead of public application endpoints.</p></div></div></section>
+
+      <section class="content-section" id="subnet"><div class="section-index">02 <span>Gateway subnet</span></div><div class="section-body"><h2>Reserve a subnet<br>for the gateway.</h2><p class="lead">Application Gateway requires a dedicated subnet. Do not place VMs or unrelated resources in it.</p><div class="subnet-plan"><div><span>VNet</span><b>vnet-cloudnet-prod</b><code>10.10.0.0/16</code></div><i></i><div class="gateway-subnet"><span>DEDICATED SUBNET</span><b>snet-appgateway</b><code>10.10.20.0/24</code><small>Application Gateway only</small></div><i></i><div><span>PRIVATE TARGETS</span><b>snet-frontend</b><code>10.10.1.0/24</code><small>web backends</small></div></div><div class="subnet-note"><span>Subnet rule</span><p>Create <code>snet-appgateway</code> before the gateway. Keep the range reserved for future scale and gateway instances.</p></div></div></section>
+
+      <section class="content-section" id="components"><div class="section-index">03 <span>Core components</span></div><div class="section-body"><h2>Connect six pieces<br>into one edge.</h2><p class="lead">The gateway becomes useful when its frontend, listener, pool, settings, probe, and rule agree.</p><div class="component-grid agw-components"><div><b>01</b><span>Frontend IP</span><small>Public or private entry</small></div><div><b>02</b><span>Listener</span><small>Port / protocol / host</small></div><div><b>03</b><span>Backend pool</span><small>VMs or private targets</small></div><div><b>04</b><span>HTTP settings</span><small>Port / protocol / timeout</small></div><div><b>05</b><span>Health probe</span><small>HTTP path / status</small></div><div><b>06</b><span>Routing rule</span><small>Listener → pool</small></div></div><div class="agw-equation"><code>Public IP:443</code><span>→</span><code>HTTPS listener</code><span>→</span><code>rule-web</code><span>→</span><code>healthy backend</code></div></div></section>
+
+      <section class="content-section" id="build"><div class="section-index">04 <span>Build sequence</span></div><div class="section-body"><div class="build-heading"><div><h2>Create the<br>application edge.</h2><p class="lead">Build the gateway in the dedicated subnet, then add a public frontend IP, listener, backend pool, HTTP settings, probe, and rule.</p></div><div class="tabs" role="tablist"><button class="tab active" data-tab="portal" role="tab">Portal path</button><button class="tab" data-tab="cli" role="tab">CLI inventory</button></div></div><div class="tab-panel active" data-panel="portal"><ol class="steps"><li><span>01</span><div><h3>Create the dedicated subnet</h3><p>In <code>vnet-cloudnet-prod</code>, create <code>snet-appgateway</code> with <code>10.10.20.0/24</code>. Keep it dedicated.</p></div></li><li><span>02</span><div><h3>Create Application Gateway</h3><p>Open <b>Application gateways → Create</b>. Use <code>appgw-cloudnet-prod</code>, Standard_v2 or WAF_v2, the same region, and the dedicated subnet.</p></div></li><li><span>03</span><div><h3>Configure frontend and listener</h3><p>Attach a Standard static public IP, create an HTTPS listener on port <code>443</code>, and use a certificate for real TLS deployments. HTTP port <code>80</code> may redirect to HTTPS.</p></div></li><li><span>04</span><div><h3>Add backend and settings</h3><p>Add the web/API private targets, create HTTP settings for the backend port, and configure a health probe such as <code>/health</code>.</p></div></li><li><span>05</span><div><h3>Attach the routing rule</h3><p>Connect the listener, HTTP settings, backend pool, and probe. Test the public gateway hostname or IP only after the backend is healthy.</p></div></li></ol></div><div class="tab-panel" data-panel="cli"><div class="command-block"><div class="command-top"><span>Azure CLI / inventory</span><button class="copy-all" type="button">Copy all</button></div><pre><code>az network application-gateway list \
+  --resource-group rg-cloudnet-prod \
+  --output table
+
+az network application-gateway show \
+  --resource-group rg-cloudnet-prod \
+  --name appgw-cloudnet-prod \
+  --output json
+
+az network application-gateway address-pool list \
+  --resource-group rg-cloudnet-prod \
+  --gateway-name appgw-cloudnet-prod \
+  --output table
+
+az network application-gateway probe list \
+  --resource-group rg-cloudnet-prod \
+  --gateway-name appgw-cloudnet-prod \
+  --output table</code></pre><span class="copy-note">Use the Portal for the first build; use CLI to inspect the deployed gateway configuration.</span></div></div></div></section>
+
+      <section class="content-section" id="routing"><div class="section-index">05 <span>Request routing</span></div><div class="section-body"><h2>Route the request,<br>not just the port.</h2><p class="lead">Application Gateway can use host and path rules. A simple first design sends the site root to the web pool and API paths to the API pool.</p><div class="request-routes"><div><span>HTTPS listener</span><code>app.cloudnet.example</code></div><i></i><div class="route-decision"><b>/api/*</b><small>API backend</small><b>/*</b><small>Web backend</small></div><i></i><div><span>Private pools</span><code>vm-web-01 / vm-api-01</code></div></div><div class="host-path-grid"><div><span>Host-based</span><code>api.example.com</code><small>→ API pool</small></div><div><span>Path-based</span><code>/api/*</code><small>→ API pool</small></div><div><span>Default</span><code>/*</code><small>→ Web pool</small></div></div></div></section>
+
+      <section class="content-section" id="health"><div class="section-index">06 <span>Health and TLS</span></div><div class="section-body"><h2>Healthy means<br>request-ready.</h2><p class="lead">The gateway probes the backend path. TLS terminates at the edge, and the backend connection uses the HTTP settings you define.</p><div class="health-tls-flow"><div><span>Client</span><code>HTTPS :443</code></div><i></i><div class="tls-node"><span>Gateway</span><b>TLS termination</b><small>listener + certificate</small></div><i></i><div><span>Backend</span><code>HTTP :8080</code><small>/health = 200</small></div></div><div class="probe-cards"><div><span>Probe path</span><b>/health</b><small>Expected 200</small></div><div><span>Frontend</span><b>443 / HTTPS</b><small>certificate at edge</small></div><div><span>Backend</span><b>8080 / HTTP</b><small>private target</small></div></div></div></section>
+
+      <section class="content-section" id="waf"><div class="section-index">07 <span>WAF direction</span></div><div class="section-body"><h2>Put policy at<br>the edge.</h2><p class="lead">WAF_v2 adds managed web protection to the gateway. Enable it after the basic routing path works so network and application policy remain easy to diagnose.</p><div class="waf-stages"><div><b>01</b><span>Gateway works</span><small>listener and backend healthy</small></div><i></i><div><b>02</b><span>WAF policy attached</span><small>managed rule sets</small></div><i></i><div class="waf-final"><b>03</b><span>Public app protected</span><small>edge filtering + routing</small></div></div><div class="callout"><span>!</span><p><strong>WAF is not a substitute for NSGs.</strong> WAF filters web requests; NSGs still protect subnet and NIC traffic boundaries.</p></div></div></section>
+
+      <section class="content-section" id="compare"><div class="section-index">08 <span>Compare edges</span></div><div class="section-body"><h2>Choose the edge<br>for the question.</h2><p class="lead">Load Balancer and Application Gateway can coexist, but they solve different ingress problems.</p><div class="compare-table agw-compare"><div class="compare-head"><span>Capability</span><span>Load Balancer</span><span>Application Gateway</span></div><div><b>Layer</b><span>L4</span><span>L7</span></div><div><b>Understands</b><span>TCP / UDP flows</span><span>HTTP / HTTPS / host / path</span></div><div><b>Health</b><span>TCP / HTTP probe</span><span>HTTP settings + probe</span></div><div><b>WAF</b><span>No</span><span>WAF_v2 option</span></div><div><b>CloudNet role</b><span>API availability lab</span><span>Public web edge</span></div></div></div></section>
+
+      <section class="content-section" id="verify"><div class="section-index">09 <span>Verification</span></div><div class="section-body"><h2>Verify the<br>full request path.</h2><p class="lead">Confirm the gateway, frontend IP, listeners, backend pool, probes, and routing rules before testing the public endpoint.</p><div class="verify-layout"><div class="command-block compact"><div class="command-top"><span>Azure CLI / evidence</span><button class="copy-command" type="button" data-copy="az network application-gateway show --resource-group rg-cloudnet-prod --name appgw-cloudnet-prod --output json; az network application-gateway address-pool list --resource-group rg-cloudnet-prod --gateway-name appgw-cloudnet-prod --output table; az network application-gateway probe list --resource-group rg-cloudnet-prod --gateway-name appgw-cloudnet-prod --output table; az network application-gateway rule list --resource-group rg-cloudnet-prod --gateway-name appgw-cloudnet-prod --output table">Copy commands</button></div><pre><code>az network application-gateway show \
+  --resource-group rg-cloudnet-prod \
+  --name appgw-cloudnet-prod \
+  --output json
+
+az network application-gateway address-pool list \
+  --resource-group rg-cloudnet-prod \
+  --gateway-name appgw-cloudnet-prod \
+  --output table
+
+az network application-gateway probe list \
+  --resource-group rg-cloudnet-prod \
+  --gateway-name appgw-cloudnet-prod \
+  --output table
+
+az network application-gateway rule list \
+  --resource-group rg-cloudnet-prod \
+  --gateway-name appgw-cloudnet-prod \
+  --output table</code></pre></div><div class="result-card"><div class="result-top"><span class="result-dot"></span> Expected evidence</div><div class="result-row"><span>Gateway</span><code>appgw-cloudnet-prod</code></div><div class="result-row"><span>Subnet</span><code>snet-appgateway</code></div><div class="result-row"><span>Listener</span><code>HTTPS :443</code></div><div class="result-row"><span>Probe</span><code>/health → 200</code></div><div class="result-row"><span>Backend</span><code>private targets healthy</code></div></div></div></div></section>
+
+      <section class="content-section" id="complete"><div class="section-index">10 <span>Checkpoint</span></div><div class="section-body"><h2>Can you explain<br>the edge?</h2><p class="lead">Do not move on until you can trace HTTPS from the client through the listener, rule, probe, HTTP settings, and private backend.</p><div class="completion checklist-light"><label><input type="checkbox"><span><b>Dedicated gateway subnet created</b><small>snet-appgateway / 10.10.20.0/24</small></span></label><label><input type="checkbox"><span><b>Application Gateway created</b><small>appgw-cloudnet-prod</small></span></label><label><input type="checkbox"><span><b>Listener and frontend IP configured</b><small>HTTPS :443</small></span></label><label><input type="checkbox"><span><b>Backend probe is healthy</b><small>/health returns 200</small></span></label><label><input type="checkbox"><span><b>Routing path verified</b><small>public edge → private backend</small></span></label></div><div class="next-part"><span class="eyebrow"><span></span> Next / Part 12</span><h3>Azure Firewall</h3><p>Introduce centralized inspection, network and application rules, and controlled hub traffic.</p></div></div></section>
+    </main>
+    <footer class="doc-footer"><a href="part-10-private-dns.html">← Part 10</a><span>CloudNet DevOps Platform / Part 11</span><a href="../index.html">Architecture →</a></footer>
+  </div>
+  <script src="part-11.js"></script>
+</body>
+</html>
