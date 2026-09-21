@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CloudNet DevOps Platform Azure networking architecture">
+  <title>CloudNet / Azure Network Architecture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="CloudNet home">
+        <span class="brand-mark"><span></span><span></span><span></span></span>
+        <span>cloudnet<span class="brand-dot">.</span></span>
+      </a>
+      <div class="topbar-meta">
+        <span class="status-dot"></span>
+        <span>AZURE / NETWORK BLUEPRINT</span>
+        <span class="version">v1.0</span>
+      </div>
+    </header>
+
+    <section class="intro" id="top">
+      <div class="eyebrow"><span></span> Production topology / 01</div>
+      <h1>CloudNet<br><em>DevOps Platform</em></h1>
+      <p class="intro-copy">A secure hub-and-spoke foundation for web, API, and data workloads on Microsoft Azure.</p>
+      <div class="intro-actions">
+        <a class="control-btn" href="docs/part-01-foundation.html"><span class="btn-icon">01</span> Open Part 01 docs</a>
+        <button class="control-btn active" data-mode="all"><span class="btn-icon">◈</span> Full topology</button>
+        <button class="control-btn" data-mode="security"><span class="btn-icon">⌁</span> Security path</button>
+        <button class="control-btn" data-mode="traffic"><span class="btn-icon">↗</span> Traffic path</button>
+      </div>
+    </section>
+
+    <section class="metrics" aria-label="Architecture summary">
+      <div class="metric"><span class="metric-value">04</span><span class="metric-label">network zones</span></div>
+      <div class="metric"><span class="metric-value">03</span><span class="metric-label">traffic layers</span></div>
+      <div class="metric"><span class="metric-value">10.10</span><span class="metric-label">production CIDR</span></div>
+      <div class="metric accent-metric"><span class="metric-value">24/7</span><span class="metric-label">observability</span></div>
+    </section>
+
+    <section class="architecture" aria-labelledby="architecture-title">
+      <div class="section-heading">
+        <div>
+          <span class="section-kicker">System map</span>
+          <h2 id="architecture-title">Azure network architecture</h2>
+        </div>
+        <div class="map-meta"><span class="live-line"></span> Live design view <span class="map-id">CN / 001</span></div>
+      </div>
+
+      <div class="diagram-wrap">
+        <div class="diagram-grid"></div>
+        <div class="diagram">
+          <div class="internet node" data-node="internet" tabindex="0" role="button">
+            <span class="node-symbol globe">◎</span>
+            <span><b>Internet</b><small>public ingress</small></span>
+          </div>
+
+          <div class="flow flow-vertical flow-a"></div>
+          <div class="component gateway node" data-node="gateway" tabindex="0" role="button">
+            <span class="node-symbol gateway-symbol">▣</span>
+            <span><b>Application Gateway</b><small>WAF / TLS termination</small></span>
+            <span class="node-tag">EDGE</span>
+          </div>
+          <div class="flow flow-vertical flow-b"></div>
+
+          <div class="hub-zone zone">
+            <div class="zone-head"><span class="zone-chip">HUB</span><span class="zone-cidr">10.0.0.0/16</span><span class="zone-rule"></span></div>
+            <div class="hub-content">
+              <div class="component firewall node" data-node="firewall" tabindex="0" role="button">
+                <span class="node-symbol firewall-symbol">⛨</span>
+                <span><b>Azure Firewall</b><small>central inspection</small></span>
+                <span class="node-tag security-tag">SECURE</span>
+              </div>
+              <div class="hub-services">
+                <span class="service-label">shared services</span>
+                <span>Route Tables</span><span>Private DNS</span><span>Azure Bastion</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flow flow-split"><i></i><i></i></div>
+
+          <div class="spokes">
+            <article class="spoke-zone zone prod-zone">
+              <div class="zone-head"><span class="zone-chip prod-chip">PROD</span><span class="zone-cidr">10.10.0.0/16</span><span class="zone-rule"></span></div>
+              <div class="spoke-subtitle">production spoke vnet</div>
+              <div class="subnets">
+                <div class="subnet frontend-subnet">
+                  <div class="subnet-head"><span>FRONTEND</span><small>10.10.1.0/24</small></div>
+                  <div class="workload node" data-node="web" tabindex="0" role="button"><span class="workload-icon">◫</span><span><b>Web VM</b><small>Nginx / frontend</small></span></div>
+                </div>
+                <div class="subnet backend-subnet">
+                  <div class="subnet-head"><span>BACKEND</span><small>10.10.2.0/24</small></div>
+                  <div class="workload node" data-node="api" tabindex="0" role="button"><span class="workload-icon">◉</span><span><b>API VM</b><small>Node.js / private</small></span></div>
+                </div>
+              </div>
+              <div class="prod-data node" data-node="data" tabindex="0" role="button"><span class="data-line"></span><span class="node-symbol database-symbol">◌</span><span><b>Private Endpoint</b><small>PostgreSQL / Storage</small></span></div>
+            </article>
+
+            <article class="spoke-zone zone dev-zone">
+              <div class="zone-head"><span class="zone-chip dev-chip">DEV</span><span class="zone-cidr">10.20.0.0/16</span><span class="zone-rule"></span></div>
+              <div class="spoke-subtitle">development spoke vnet</div>
+              <div class="subnets">
+                <div class="subnet frontend-subnet">
+                  <div class="subnet-head"><span>FRONTEND</span><small>10.20.1.0/24</small></div>
+                  <div class="workload node" data-node="dev-web" tabindex="0" role="button"><span class="workload-icon">◫</span><span><b>Web VM</b><small>development</small></span></div>
+                </div>
+                <div class="subnet backend-subnet">
+                  <div class="subnet-head"><span>BACKEND</span><small>10.20.2.0/24</small></div>
+                  <div class="workload node" data-node="dev-api" tabindex="0" role="button"><span class="workload-icon">◉</span><span><b>API VM</b><small>development</small></span></div>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <div class="connection-notes">
+            <span class="note note-peering">VNET PEERING</span>
+            <span class="note note-private">PRIVATE TRAFFIC</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <span><i class="legend-dot ingress"></i> Public ingress</span>
+        <span><i class="legend-dot inspect"></i> Inspected traffic</span>
+        <span><i class="legend-dot private"></i> Private network</span>
+        <span><i class="legend-dot data"></i> Managed data</span>
+        <span class="legend-hint">Select a component to inspect</span>
+      </div>
+    </section>
+
+    <section class="detail-panel" aria-live="polite">
+      <div class="detail-icon" id="detail-icon">◎</div>
+      <div class="detail-copy"><span class="section-kicker" id="detail-kicker">Selected component</span><h3 id="detail-title">Internet</h3><p id="detail-description">Public traffic enters through the application edge, where TLS is terminated and web requests are filtered before reaching private workloads.</p></div>
+      <div class="detail-specs" id="detail-specs"><span>ROLE<b>Ingress</b></span><span>ACCESS<b>Public</b></span><span>FLOW<b>Inbound</b></span></div>
+    </section>
+
+    <footer class="footer"><span>CloudNet DevOps Platform</span><span>Architecture / Foundation layer</span><span>Azure · Terraform · GitHub Actions</span></footer>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>

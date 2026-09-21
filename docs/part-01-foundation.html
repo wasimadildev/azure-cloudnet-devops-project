@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CloudNet DevOps Platform Part 01: Azure VNet foundation documentation">
+  <title>Part 01 / Foundation | CloudNet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="part-01.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="doc-header">
+      <a class="brand" href="../index.html" aria-label="Back to CloudNet architecture">
+        <span class="brand-mark"><i></i><i></i><i></i></span><span>cloudnet<span class="orange">.</span></span>
+      </a>
+      <nav class="header-nav" aria-label="Documentation navigation"><a href="../index.html">Architecture</a><a class="active" href="#top">Part 01</a><a href="part-02-vms.html">Part 02</a><span class="status"><b></b> Foundation lab</span></nav>
+    </header>
+
+    <main id="top">
+      <section class="doc-hero">
+        <div class="hero-copy">
+          <div class="eyebrow"><span></span> Learning path / 01 of 18</div>
+          <h1>Build the<br><em>foundation.</em></h1>
+          <p>Before deploying servers, create the Azure network that will hold them. This first lab builds one resource group, one production VNet, and four purpose-specific subnets.</p>
+          <div class="hero-meta"><span>Difficulty <strong>Foundation</strong></span><span>Scope <strong>Network only</strong></span><span>Outcome <strong>No servers</strong></span></div>
+        </div>
+        <div class="hero-card">
+          <span class="card-label">Part 01 / target state</span>
+          <div class="mini-stack"><div>Azure subscription</div><i></i><div class="highlight">rg-cloudnet-prod</div><i></i><div class="vnet">vnet-cloudnet-prod <small>10.10.0.0/16</small></div><i></i><div class="mini-subnets"><span>snet-frontend</span><span>snet-backend</span><span>snet-database</span><span>snet-management</span></div></div>
+          <span class="card-foot"><b>01</b> network foundation / ready for Part 02</span>
+        </div>
+      </section>
+
+      <div class="progress"><span class="done"></span><span class="current"></span><span></span><span></span><span></span><small>01 / 18</small></div>
+
+      <section class="content-section architecture-section" id="architecture">
+        <div class="section-index">01 <span>Architecture</span></div>
+        <div class="section-body">
+          <h2>A small network<br>with a clear job.</h2>
+          <p class="lead">The first version is deliberately quiet. We are making the address space and subnet boundaries explicit before introducing VMs, security rules, routes, or load balancers.</p>
+          <div class="foundation-map">
+            <div class="map-grid"></div>
+            <div class="map-flow root"><span>Azure subscription</span><i></i><strong>rg-cloudnet-prod</strong><i></i><b>vnet-cloudnet-prod <em>10.10.0.0/16</em></b></div>
+            <div class="map-branches"><article><span class="subnet-chip frontend">01</span><h3>snet-frontend</h3><code>10.10.1.0/24</code><p>Internet-facing application layer</p><small>future: web VM / App Gateway</small></article><article><span class="subnet-chip backend">02</span><h3>snet-backend</h3><code>10.10.2.0/24</code><p>Private API and service layer</p><small>future: Node.js / Go API</small></article><article><span class="subnet-chip database">03</span><h3>snet-database</h3><code>10.10.3.0/24</code><p>Data services boundary</p><small>future: PostgreSQL</small></article><article><span class="subnet-chip management">04</span><h3>snet-management</h3><code>10.10.10.0/24</code><p>Operations and administration</p><small>future: Bastion / monitoring</small></article></div>
+          </div>
+          <div class="callout"><span>!</span><p><strong>No VM yet.</strong> The absence of servers is intentional. Part 01 is about learning how Azure organizes network resources before compute is attached.</p></div>
+        </div>
+      </section>
+
+      <section class="content-section" id="naming">
+        <div class="section-index">02 <span>Standards</span></div>
+        <div class="section-body split-heading"><div><h2>Name it like<br>you mean it.</h2><p class="lead">Professional names make a cloud environment easier to search, automate, troubleshoot, and explain in a portfolio.</p></div><div class="naming-card"><div><span>avoid</span><code>test-vnet</code></div><div class="arrow">→</div><div><span>use</span><code>vnet-cloudnet-prod</code></div></div></div>
+        <div class="table-wrap"><table><thead><tr><th>Resource</th><th>Professional name</th><th>Why it exists</th></tr></thead><tbody><tr><td>Resource group</td><td><code>rg-cloudnet-prod</code></td><td>Groups production resources</td></tr><tr><td>Virtual network</td><td><code>vnet-cloudnet-prod</code></td><td>Owns the production address space</td></tr><tr><td>Frontend subnet</td><td><code>snet-frontend</code></td><td>Web and public application layer</td></tr><tr><td>Backend subnet</td><td><code>snet-backend</code></td><td>Private API services</td></tr><tr><td>Database subnet</td><td><code>snet-database</code></td><td>Database boundary</td></tr><tr><td>Management subnet</td><td><code>snet-management</code></td><td>Admin and operations tooling</td></tr><tr><td>Future VM</td><td><code>vm-web-01</code> / <code>vm-api-01</code></td><td>Predictable compute identity</td></tr><tr><td>Future NSG</td><td><code>nsg-frontend</code> / <code>nsg-backend</code></td><td>Subnet traffic policy</td></tr></tbody></table></div>
+      </section>
+
+      <section class="content-section" id="addressing">
+        <div class="section-index">03 <span>Address plan</span></div>
+        <div class="section-body"><h2>Address space is<br>architecture.</h2><p class="lead">The VNet reserves a large /16 range. Each /24 subnet gets a clean, non-overlapping slice so future peering and routing remain possible.</p><div class="address-layout"><div class="cidr-card"><div class="cidr-top"><span>Production VNet</span><code>10.10.0.0/16</code></div><div class="cidr-bar"><i class="front"></i><i class="back"></i><i class="db"></i><i class="mgmt"></i></div><div class="cidr-legend"><span><i class="front"></i> frontend <b>10.10.1.0/24</b></span><span><i class="back"></i> backend <b>10.10.2.0/24</b></span><span><i class="db"></i> database <b>10.10.3.0/24</b></span><span><i class="mgmt"></i> management <b>10.10.10.0/24</b></span></div></div><div class="future-ranges"><span class="section-kicker">Later, without overlap</span><div><b>10.0.0.0/16</b><small>Hub VNet</small></div><div><b>10.20.0.0/16</b><small>Development</small></div><div><b>10.30.0.0/16</b><small>Testing</small></div></div></div><div class="callout green"><span>↗</span><p><strong>Why no overlap?</strong> VNet peering and routing depend on unique address spaces. Plan the ranges before the environment grows.</p></div></div>
+      </section>
+
+      <section class="content-section" id="build">
+        <div class="section-index">04 <span>Build sequence</span></div>
+        <div class="section-body"><div class="build-heading"><div><h2>Create the<br>foundation.</h2><p class="lead">Use the Portal to see each resource clearly, or switch to CLI to practice the repeatable DevOps workflow.</p></div><div class="tabs" role="tablist"><button class="tab active" data-tab="portal" role="tab">Portal path</button><button class="tab" data-tab="cli" role="tab">Azure CLI</button></div></div>
+          <div class="tab-panel active" data-panel="portal"><ol class="steps"><li><span>01</span><div><h3>Create the resource group</h3><p>Open <b>Resource groups</b> in the Azure Portal and select <b>Create</b>. Use <code>rg-cloudnet-prod</code>, choose your preferred region, then review and create.</p><div class="step-detail"><b>Region</b><span>Keep future lab resources in the same region where possible.</span></div></div></li><li><span>02</span><div><h3>Create the virtual network</h3><p>Open <b>Virtual networks → Create</b>. Select the resource group, name it <code>vnet-cloudnet-prod</code>, and set the IPv4 address space to <code>10.10.0.0/16</code>.</p><div class="step-detail"><b>Address space</b><span>Do not use overlapping ranges with future hub, dev, or test VNets.</span></div></div></li><li><span>03</span><div><h3>Add four subnets</h3><p>Open the VNet, choose <b>Subnets</b>, and add each range from the address plan: frontend, backend, database, and management.</p><div class="step-detail"><b>Subnet rule</b><span>Every subnet must sit inside the VNet and must not overlap another subnet.</span></div></div></li><li><span>04</span><div><h3>Review the result</h3><p>Open the VNet overview and confirm the four subnets exist with the exact names and CIDR ranges. Stop here: no VM is required for this part.</p></div></li></ol></div>
+          <div class="tab-panel" data-panel="cli"><div class="command-block"><div class="command-top"><span>Azure CLI / foundation.sh</span><button class="copy-all" type="button">Copy all</button></div><pre><code>az version
+az login
+az account show
+
+az group create \
+  --name rg-cloudnet-prod \
+  --location eastus
+
+az network vnet create \
+  --resource-group rg-cloudnet-prod \
+  --name vnet-cloudnet-prod \
+  --address-prefix 10.10.0.0/16
+
+az network vnet subnet create \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-prod \
+  --name snet-frontend \
+  --address-prefixes 10.10.1.0/24
+
+az network vnet subnet create \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-prod \
+  --name snet-backend \
+  --address-prefixes 10.10.2.0/24
+
+az network vnet subnet create \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-prod \
+  --name snet-database \
+  --address-prefixes 10.10.3.0/24
+
+az network vnet subnet create \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-prod \
+  --name snet-management \
+  --address-prefixes 10.10.10.0/24</code></pre><span class="copy-note">Commands are ready for a region named <code>eastus</code>. Replace it with your chosen Azure region.</span></div></div>
+        </div>
+      </section>
+
+      <section class="content-section" id="verify">
+        <div class="section-index">05 <span>Verification</span></div>
+        <div class="section-body"><h2>Prove the network<br>exists.</h2><p class="lead">A good lab ends with evidence. List the subnets and compare the result with the expected table below.</p><div class="verify-layout"><div class="command-block compact"><div class="command-top"><span>Verify / Azure CLI</span><button class="copy-command" type="button" data-copy="az network vnet subnet list --resource-group rg-cloudnet-prod --vnet-name vnet-cloudnet-prod --output table">Copy command</button></div><pre><code>az network vnet subnet list \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-prod \
+  --output table</code></pre></div><div class="result-card"><div class="result-top"><span class="result-dot"></span> Expected output</div><div class="result-row header"><span>Name</span><span>AddressPrefix</span></div><div class="result-row"><span>snet-frontend</span><code>10.10.1.0/24</code></div><div class="result-row"><span>snet-backend</span><code>10.10.2.0/24</code></div><div class="result-row"><span>snet-database</span><code>10.10.3.0/24</code></div><div class="result-row"><span>snet-management</span><code>10.10.10.0/24</code></div></div></div></div>
+      </section>
+
+      <section class="content-section" id="concepts">
+        <div class="section-index">06 <span>Core concept</span></div>
+        <div class="section-body"><h2>Know the resource<br>relationship.</h2><p class="lead">Do not memorize commands without understanding what they create. Azure networking becomes much easier when the ownership chain is clear.</p><div class="relationship"><div><b>Subscription</b><small>billing and access boundary</small></div><i></i><div><b>Resource group</b><small>lifecycle container</small></div><i></i><div><b>VNet</b><small>private address space</small></div><i></i><div><b>Subnet</b><small>network segment</small></div><i></i><div class="future"><b>NIC</b><small>VM network interface</small></div><i></i><div class="future"><b>VM</b><small>compute workload</small></div></div><div class="concept-note"><span>Part 01 stops here</span><p>In Part 02, the VM will attach to a NIC, receive a private IP, and live inside one of these subnet boundaries.</p></div></div>
+      </section>
+
+      <section class="content-section portfolio-section" id="portfolio">
+        <div class="section-index">07 <span>Portfolio trail</span></div>
+        <div class="section-body split-heading"><div><h2>Leave a trail<br>someone can follow.</h2><p class="lead">Keep each lab in the same repository. The final project should show the architecture growing from a clean foundation into a production-style platform.</p></div><div class="repo-card"><span>Repository</span><b>azure-cloudnet-<br>devops-project</b><small>Part 01 / documented</small></div></div>
+        <div class="folder-tree"><span>azure-cloudnet-devops-project/</span><span>├── README.md</span><span>├── docs/</span><span>│   ├── architecture/</span><span>│   ├── networking/</span><span>│   └── screenshots/</span><span>├── terraform/</span><span>├── scripts/</span><span>│   ├── azure-cli/</span><span>│   └── linux/</span><span>├── application/</span><span>│   ├── frontend/</span><span>│   └── backend/</span><span>├── docker/</span><span>└── .github/workflows/</span></div>
+      </section>
+
+      <section class="completion" id="complete"><div><span class="eyebrow"><span></span> Part 01 checkpoint</span><h2>Foundation<br><em>complete.</em></h2><p>You should now have one resource group, one VNet, and four subnets. There are no servers yet, and that is the correct result.</p></div><div class="checklist"><label><input type="checkbox"> <span><b>Resource group created</b><small>rg-cloudnet-prod</small></span></label><label><input type="checkbox"> <span><b>VNet created</b><small>vnet-cloudnet-prod / 10.10.0.0/16</small></span></label><label><input type="checkbox"> <span><b>Four subnets verified</b><small>frontend · backend · database · management</small></span></label><label><input type="checkbox"> <span><b>No servers deployed</b><small>ready for Part 02</small></span></label></div></section>
+    </main>
+
+    <footer class="doc-footer"><a href="../index.html">← Back to architecture</a><span>CloudNet DevOps Platform / Part 01</span><a href="part-02-vms.html">Part 02 →</a></footer>
+  </div>
+  <script src="part-01.js"></script>
+</body>
+</html>

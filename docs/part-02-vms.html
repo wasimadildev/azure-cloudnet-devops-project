@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CloudNet DevOps Platform Part 02: deploy Ubuntu VMs and understand Azure networking">
+  <title>Part 02 / Ubuntu VMs | CloudNet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="part-01.css">
+  <link rel="stylesheet" href="part-02.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="doc-header">
+      <a class="brand" href="../index.html" aria-label="Back to CloudNet architecture"><span class="brand-mark"><i></i><i></i><i></i></span><span>cloudnet<span class="orange">.</span></span></a>
+      <nav class="header-nav" aria-label="Documentation navigation"><a href="../index.html">Architecture</a><a href="part-01-foundation.html">Part 01</a><a class="active" href="#top">Part 02</a><span class="status"><b></b> Compute lab</span></nav>
+    </header>
+
+    <main id="top">
+      <section class="doc-hero">
+        <div class="hero-copy"><div class="eyebrow"><span></span> Learning path / 02 of 18</div><h1>Make the<br><em>network work.</em></h1><p>Attach two Ubuntu VMs to the foundation VNet and prove that traffic can move between different subnets over Azure private networking.</p><div class="hero-meta"><span>Difficulty <strong>Core</strong></span><span>Scope <strong>Compute + network</strong></span><span>Outcome <strong>2 Ubuntu VMs</strong></span></div></div>
+        <div class="hero-card vm-hero-card"><span class="card-label">Part 02 / target state</span><div class="mini-stack"><div>vnet-cloudnet-prod <small>10.10.0.0/16</small></div><i></i><div class="vm-pair"><span><b>vm-web-01</b><small>10.10.1.x</small></span><span><b>vm-api-01</b><small>10.10.2.x</small></span></div><i></i><div class="private-pill">private VNet communication</div></div><span class="card-foot"><b>02</b> compute attached / ready for NSGs</span></div>
+      </section>
+
+      <div class="progress"><span class="done"></span><span class="done"></span><span class="current"></span><span></span><span></span><small>02 / 18</small></div>
+
+      <section class="content-section" id="target">
+        <div class="section-index">01 <span>Target state</span></div>
+        <div class="section-body"><h2>Two VMs.<br>One private network.</h2><p class="lead">The VMs live in different subnets, but both subnets belong to <code>vnet-cloudnet-prod</code>. Azure can route their private addresses inside the VNet.</p><div class="vm-map"><div class="vm-map-top"><span>Azure</span><i></i><b>vnet-cloudnet-prod <small>10.10.0.0/16</small></b></div><div class="vm-map-branches"><article class="vm-card web-card"><div class="vm-card-label"><span>FRONTEND</span><code>10.10.1.0/24</code></div><div class="vm-icon">▣</div><h3>vm-web-01</h3><p>Ubuntu / Nginx</p><div class="address-pill">private IP · 10.10.1.x</div><small>snet-frontend</small></article><div class="private-link"><span>private VNet traffic</span><i></i><i></i><i></i></div><article class="vm-card api-card"><div class="vm-card-label"><span>BACKEND</span><code>10.10.2.0/24</code></div><div class="vm-icon">◉</div><h3>vm-api-01</h3><p>Ubuntu / API service</p><div class="address-pill">private IP · 10.10.2.x</div><small>snet-backend</small></article></div></div><div class="callout"><span>!</span><p><strong>Security comes later.</strong> For this lab, focus on identity, interfaces, addresses, routes, and communication. NSG rules are deliberately covered in Part 03.</p></div></div>
+      </section>
+
+      <section class="content-section" id="model">
+        <div class="section-index">02 <span>Azure model</span></div>
+        <div class="section-body"><h2>The VM is not<br>the connection.</h2><p class="lead">A VM connects to the network through a Network Interface Card. The NIC owns the private IP and subnet relationship; the optional public IP is a separate Azure resource.</p><div class="resource-chain"><div class="chain-node vm-node"><b>VM</b><small>compute</small></div><i></i><div class="chain-node nic-node"><b>NIC</b><small>network interface</small></div><div class="nic-split"><i></i><i></i></div><div class="chain-children"><div class="chain-node"><b>Private IP</b><small>10.10.x.x</small></div><div class="chain-node public-node"><b>Public IP</b><small>SSH access</small></div></div><i></i><div class="chain-node"><b>Subnet</b><small>snet-frontend/backend</small></div><i></i><div class="chain-node vnet-node"><b>VNet</b><small>10.10.0.0/16</small></div></div><div class="model-note"><span>Remember</span><p>The VM itself is compute. The NIC is the real network attachment.</p></div></div>
+      </section>
+
+      <section class="content-section" id="create">
+        <div class="section-index">03 <span>Deployment</span></div>
+        <div class="section-body"><div class="build-heading"><div><h2>Create the<br>web VM.</h2><p class="lead">Use SSH public-key authentication. Give the lab VMs public IPs temporarily so you can connect from your Mac; production access will move to Bastion later.</p></div><div class="tabs" role="tablist"><button class="tab active" data-tab="web-portal" role="tab">Portal values</button><button class="tab" data-tab="web-cli" role="tab">CLI example</button></div></div><div class="tab-panel active" data-panel="web-portal"><div class="value-grid"><div><span>Resource group</span><code>rg-cloudnet-prod</code></div><div><span>VM name</span><code>vm-web-01</code></div><div><span>Image</span><b>Ubuntu Server 24.04 LTS</b></div><div><span>Architecture</span><b>x64</b></div><div><span>VNet</span><code>vnet-cloudnet-prod</code></div><div><span>Subnet</span><code>snet-frontend</code></div><div><span>Public IP</span><code>pip-vm-web-01</code></div><div><span>Inbound port</span><b>SSH (22) only</b></div></div><div class="step-detail"><b>Authentication</b><span>Choose SSH public key instead of password authentication. Never select All ports.</span></div></div><div class="tab-panel" data-panel="web-cli"><div class="command-block"><div class="command-top"><span>Azure CLI / vm-web-01</span><button class="copy-command" type="button" data-copy="az vm create --resource-group rg-cloudnet-prod --name vm-web-01 --image Ubuntu2404 --vnet-name vnet-cloudnet-prod --subnet snet-frontend --admin-username azureuser --ssh-key-values ~/.ssh/id_rsa.pub --public-ip-address pip-vm-web-01 --nsg-rule SSH">Copy command</button></div><pre><code>az vm create \
+  --resource-group rg-cloudnet-prod \
+  --name vm-web-01 \
+  --image Ubuntu2404 \
+  --vnet-name vnet-cloudnet-prod \
+  --subnet snet-frontend \
+  --admin-username azureuser \
+  --ssh-key-values ~/.ssh/id_rsa.pub \
+  --public-ip-address pip-vm-web-01 \
+  --nsg-rule SSH</code></pre><span class="copy-note">Use the public key path that exists on your machine. The exact Ubuntu image alias can change; verify with <code>az vm image list</code> if needed.</span></div></div></div>
+      </section>
+
+      <section class="content-section" id="api-vm">
+        <div class="section-index">04 <span>Deployment</span></div>
+        <div class="section-body"><div class="build-heading"><div><h2>Place the API<br>in backend.</h2><p class="lead">Repeat the deployment, changing only the identity, subnet, and public IP name. The two interfaces now sit in separate subnet boundaries.</p></div><span class="deployment-badge">same VNet / different subnet</span></div><div class="value-grid api-values"><div><span>VM name</span><code>vm-api-01</code></div><div><span>VNet</span><code>vnet-cloudnet-prod</code></div><div><span>Subnet</span><code>snet-backend</code></div><div><span>Public IP</span><code>pip-vm-api-01</code></div><div><span>Private range</span><code>10.10.2.0/24</code></div><div><span>Inbound port</span><b>SSH (22) only</b></div></div><div class="command-block"><div class="command-top"><span>Azure CLI / vm-api-01</span><button class="copy-command" type="button" data-copy="az vm create --resource-group rg-cloudnet-prod --name vm-api-01 --image Ubuntu2404 --vnet-name vnet-cloudnet-prod --subnet snet-backend --admin-username azureuser --ssh-key-values ~/.ssh/id_rsa.pub --public-ip-address pip-vm-api-01 --nsg-rule SSH">Copy command</button></div><pre><code>az vm create \
+  --resource-group rg-cloudnet-prod \
+  --name vm-api-01 \
+  --image Ubuntu2404 \
+  --vnet-name vnet-cloudnet-prod \
+  --subnet snet-backend \
+  --admin-username azureuser \
+  --ssh-key-values ~/.ssh/id_rsa.pub \
+  --public-ip-address pip-vm-api-01 \
+  --nsg-rule SSH</code></pre></div></div>
+      </section>
+
+      <section class="content-section" id="addresses">
+        <div class="section-index">05 <span>IP anatomy</span></div>
+        <div class="section-body"><h2>Two addresses,<br>two jobs.</h2><p class="lead">Use the public address only to reach a VM from your Mac. Use the private address for web-to-API communication inside Azure.</p><div class="ip-comparison"><article><span class="ip-label public-label">Public IP</span><div class="ip-visual">20<span>.x.x.x</span></div><h3>SSH from your Mac</h3><p>Internet-facing address attached through the NIC. Temporary lab access only.</p><div class="flow-line">Mac <i></i> Internet <i></i> Public IP <i></i> VM</div></article><article><span class="ip-label private-label">Private IP</span><div class="ip-visual">10.10<span>.x.x</span></div><h3>Web to API</h3><p>VNet address used for internal traffic. No public internet path is required.</p><div class="flow-line">Web VM <i></i> NIC <i></i> Subnet <i></i> API VM</div></article></div><div class="callout green"><span>↗</span><p><strong>Production principle:</strong> the final platform will remove public IPs from backend and data workloads and use Application Gateway, Bastion, NSGs, private endpoints, and private DNS.</p></div></div>
+      </section>
+
+      <section class="content-section" id="linux">
+        <div class="section-index">06 <span>Linux inspection</span></div>
+        <div class="section-body"><h2>Read the network<br>from inside.</h2><p class="lead">SSH into each VM and inspect the interface, route table, DNS settings, hostname, and listening ports. These commands are the beginning of your Linux networking toolkit.</p><div class="command-grid"><div class="command-block compact"><div class="command-top"><span>Inside each Ubuntu VM</span><button class="copy-command" type="button" data-copy="hostname; ip addr; ip route; resolvectl status; ss -tulpn">Copy commands</button></div><pre><code>hostname
+ip addr
+ip addr show eth0
+ip route
+resolvectl status
+cat /etc/resolv.conf
+ss -tulpn</code></pre></div><div class="inspection-list"><div><code>hostname</code><span>Confirm which VM you are on.</span></div><div><code>ip addr</code><span>Find the private address on eth0.</span></div><div><code>ip route</code><span>Read local and default routes.</span></div><div><code>resolvectl status</code><span>Inspect DNS configuration.</span></div><div><code>ss -tulpn</code><span>See listening TCP/UDP ports.</span></div></div></div><div class="route-card"><span class="section-kicker">Expected route shape</span><code>10.10.1.0/24 dev eth0</code><code>default via 10.10.1.1 dev eth0</code><p>Local subnet traffic uses <b>eth0</b>; everything else uses the default gateway.</p></div></div>
+      </section>
+
+      <section class="content-section" id="dhcp">
+        <div class="section-index">07 <span>Platform details</span></div>
+        <div class="section-body"><h2>Azure gives the<br>NIC its context.</h2><p class="lead">You did not normally type the VM's private IP into Ubuntu. Azure provides network configuration through its platform networking and DHCP behavior.</p><div class="platform-grid"><div class="dhcp-flow"><span>Azure platform</span><i></i><span>NIC</span><i></i><span>Ubuntu / eth0</span><small>private IP · route · DNS context</small></div><div class="reserved-card"><span class="section-kicker">Azure subnet reservation</span><h3>10.10.1.0/24</h3><div class="reserved-addresses"><span>10.10.1.0 <small>network</small></span><span>10.10.1.1 <small>gateway</small></span><span>10.10.1.2 <small>platform</small></span><span>10.10.1.3 <small>platform</small></span><span>10.10.1.255 <small>reserved</small></span></div><strong>256 total − 5 reserved = 251 usable</strong></div></div><div class="callout"><span>!</span><p><strong>Remember:</strong> Azure reserves the first four and last IP address of every subnet. A <code>/24</code> has 256 mathematical addresses, but 251 usable Azure addresses.</p></div></div>
+      </section>
+
+      <section class="content-section" id="test">
+        <div class="section-index">08 <span>Connectivity lab</span></div>
+        <div class="section-body"><h2>Prove private<br>communication.</h2><p class="lead">Use the API VM as a temporary HTTP listener. Then request it from the web VM using the API's private address.</p><div class="test-flow"><div><span>01 / API VM</span><code>python3 -m http.server 8080 --bind 0.0.0.0</code><small>Listening on 0.0.0.0:8080</small></div><i></i><div><span>02 / Web VM</span><code>curl http://10.10.2.x:8080</code><small>HTTP response over private VNet traffic</small></div></div><div class="test-commands"><div><span>Route test</span><code>ip route get 10.10.2.x</code></div><div><span>ICMP test</span><code>ping 10.10.2.x</code></div><div><span>Listening ports</span><code>ss -tulpn</code></div></div><div class="callout green"><span>↗</span><p><strong>Prefer TCP evidence.</strong> Ping may be blocked by security rules. A successful curl to a known listening service is a clearer demonstration of the network path.</p></div></div>
+      </section>
+
+      <section class="content-section" id="verify">
+        <div class="section-index">09 <span>Verification</span></div>
+        <div class="section-body"><h2>Verify from<br>Azure too.</h2><p class="lead">Linux tells you what the guest sees. Azure CLI tells you what resources and addresses the platform assigned.</p><div class="verify-layout"><div class="command-block compact"><div class="command-top"><span>Azure CLI / inventory</span><button class="copy-command" type="button" data-copy="az network nic list --resource-group rg-cloudnet-prod --output table; az vm list-ip-addresses --resource-group rg-cloudnet-prod --output table">Copy commands</button></div><pre><code>az network nic list \
+  --resource-group rg-cloudnet-prod \
+  --output table
+
+az vm list-ip-addresses \
+  --resource-group rg-cloudnet-prod \
+  --output table</code></pre></div><div class="result-card"><div class="result-top"><span class="result-dot"></span> Check these relationships</div><div class="result-row"><span>vm-web-01</span><code>snet-frontend</code></div><div class="result-row"><span>vm-api-01</span><code>snet-backend</code></div><div class="result-row"><span>Both NICs</span><code>vnet-cloudnet-prod</code></div><div class="result-row"><span>Both VMs</span><code>private IP present</code></div></div></div></div>
+      </section>
+
+      <section class="content-section" id="troubleshoot">
+        <div class="section-index">10 <span>Troubleshooting</span></div>
+        <div class="section-body"><h2>Diagnose in<br>layers.</h2><p class="lead">When <code>curl http://10.10.2.x:8080</code> fails, do not change random settings. Walk down the path in order.</p><div class="troubleshoot-flow"><div><b>01</b><span>VM running?</span></div><div><b>02</b><span>NIC has private IP?</span></div><div><b>03</b><span>Correct VNet?</span></div><div><b>04</b><span>Destination correct?</span></div><div><b>05</b><span>Route exists?</span></div><div><b>06</b><span>Service listening?</span></div><div><b>07</b><span>OS firewall?</span></div><div><b>08</b><span>Azure NSG?</span></div><div><b>09</b><span>Bound to 0.0.0.0?</span></div></div></div>
+      </section>
+
+      <section class="content-section" id="complete">
+        <div class="section-index">11 <span>Checkpoint</span></div>
+        <div class="section-body"><h2>Can you explain<br>the path?</h2><p class="lead">Do not move on until you can name the resource relationship, inspect both Linux guests, and prove an HTTP request crosses the private VNet path.</p><div class="completion checklist-light"><label><input type="checkbox"><span><b>vm-web-01 created</b><small>Ubuntu in snet-frontend</small></span></label><label><input type="checkbox"><span><b>vm-api-01 created</b><small>Ubuntu in snet-backend</small></span></label><label><input type="checkbox"><span><b>NIC and IPs inspected</b><small>private and temporary public addresses understood</small></span></label><label><input type="checkbox"><span><b>Linux commands practiced</b><small>ip addr · ip route · ss · resolvectl</small></span></label><label><input type="checkbox"><span><b>Private HTTP test passed</b><small>web VM → API VM over 10.10.2.x:8080</small></span></label></div><div class="next-part"><span class="eyebrow"><span></span> Next / Part 03</span><h3>Azure NSG &amp; Network Security</h3><p>Turn the working path into a controlled path with inbound rules, priorities, ports, subnet association, and deliberate break/fix tests.</p></div></div>
+      </section>
+    </main>
+
+    <footer class="doc-footer"><a href="part-01-foundation.html">← Part 01</a><span>CloudNet DevOps Platform / Part 02</span><a href="../index.html">Architecture →</a></footer>
+  </div>
+  <script src="part-02.js"></script>
+</body>
+</html>
