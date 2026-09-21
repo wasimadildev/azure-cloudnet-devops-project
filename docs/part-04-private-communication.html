@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CloudNet DevOps Platform Part 04: private VM-to-VM communication and backend NSG rules">
+  <title>Part 04 / Private Communication | CloudNet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="doc-header">
+      <a class="brand" href="../index.html" aria-label="Back to CloudNet architecture"><span class="brand-mark"><i></i><i></i><i></i></span><span>cloudnet<span class="orange">.</span></span></a>
+      <nav class="header-nav" aria-label="Documentation navigation"><a href="../index.html">Architecture</a><a href="part-01-foundation.html">Part 01</a><a href="part-02-vms.html">Part 02</a><a href="part-03-nsg.html">Part 03</a><a class="active" href="#top">Part 04</a><span class="status"><b></b> Private traffic lab</span></nav>
+    </header>
+
+    <main id="top">
+      <section class="doc-hero">
+        <div class="hero-copy"><div class="eyebrow"><span></span> Learning path / 04 of 18</div><h1>Keep the<br><em>API private.</em></h1><p>Connect the frontend and backend over Azure's private VNet path, then restrict TCP 8080 so only the frontend subnet can reach the API.</p><div class="hero-meta"><span>Difficulty <strong>Core</strong></span><span>Scope <strong>Private traffic</strong></span><span>Outcome <strong>nsg-backend</strong></span></div></div>
+        <div class="hero-card private-hero-card"><span class="card-label">Part 04 / target state</span><div class="private-hero-stack"><div class="hero-vm web">vm-web-01 <small>10.10.1.x</small></div><i></i><div class="hero-rule">TCP 8080 <small>10.10.1.0/24 → 10.10.2.0/24</small></div><i></i><div class="hero-vm api">vm-api-01 <small>10.10.2.x</small></div></div><span class="card-foot"><b>04</b> private application path / least privilege</span></div>
+      </section>
+
+      <div class="progress"><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="current"></span><small>04 / 18</small></div>
+
+      <section class="content-section" id="target">
+        <div class="section-index">01 <span>Target state</span></div>
+        <div class="section-body"><h2>One application<br>path, kept private.</h2><p class="lead">The frontend uses the backend's private IP. Public IPs may exist temporarily for SSH during the lab, but application traffic stays inside <code>vnet-cloudnet-prod</code>.</p><div class="private-map"><div class="private-endpoint web-endpoint"><span class="layer-label">FRONTEND</span><b>vm-web-01</b><code>10.10.1.x</code><small>snet-frontend / 10.10.1.0/24</small></div><div class="private-route"><span>Azure VNet / private traffic</span><strong>TCP 8080</strong><i></i><i></i><i></i></div><div class="private-endpoint api-endpoint"><span class="layer-label">BACKEND</span><b>vm-api-01</b><code>10.10.2.x</code><small>snet-backend / 10.10.2.0/24</small></div></div><div class="callout green"><span>↗</span><p><strong>No Internet, NAT, or custom route is required.</strong> Both subnets belong to the same VNet, so Azure provides the basic VNet routing automatically.</p></div></div>
+      </section>
+
+      <section class="content-section" id="vm">
+        <div class="section-index">02 <span>Backend VM</span></div>
+        <div class="section-body"><h2>Put the API<br>in backend.</h2><p class="lead">Create or confirm <code>vm-api-01</code> in the backend subnet. The subnet choice is the important part of this deployment.</p><div class="value-grid private-values"><div><span>Resource group</span><code>rg-cloudnet-prod</code></div><div><span>VM name</span><code>vm-api-01</code></div><div><span>Region</span><b>Same as VNet</b></div><div><span>Image</span><b>Ubuntu Server 24.04 LTS</b></div><div><span>VNet</span><code>vnet-cloudnet-prod</code></div><div><span>Subnet</span><code>snet-backend</code></div><div><span>Address range</span><code>10.10.2.0/24</code></div><div><span>Public IP</span><b>Temporary SSH only</b></div></div><div class="placement-compare"><div><span class="section-kicker">Correct</span><b>vnet-cloudnet-prod</b><code>snet-backend</code></div><div><span class="section-kicker">Avoid</span><b>default subnet</b><code>snet-frontend</code></div></div></div>
+      </section>
+
+      <section class="content-section" id="inspect">
+        <div class="section-index">03 <span>Inspect</span></div>
+        <div class="section-body"><h2>Observe both<br>private addresses.</h2><p class="lead">Do not assume the final host numbers. Ask Azure for the addresses, then use those actual values in your tests.</p><div class="command-grid"><div class="command-block compact"><div class="command-top"><span>Azure CLI / inventory</span><button class="copy-command" type="button" data-copy="az vm list-ip-addresses --resource-group rg-cloudnet-prod --output table">Copy command</button></div><pre><code>az vm list-ip-addresses \
+  --resource-group rg-cloudnet-prod \
+  --output table</code></pre></div><div class="ip-observation"><div><span>vm-web-01</span><code>10.10.1.x</code><small>frontend subnet</small></div><div class="ip-arrow">→</div><div><span>vm-api-01</span><code>10.10.2.x</code><small>backend subnet</small></div></div></div><div class="model-note"><span>Address rule</span><p>Use <code>API_PRIVATE_IP</code> as a placeholder until Azure returns the actual backend private IP.</p></div></div>
+      </section>
+
+      <section class="content-section" id="service">
+        <div class="section-index">04 <span>Test service</span></div>
+        <div class="section-body"><h2>Give the API<br>something to answer.</h2><p class="lead">Run a small HTTP service on the backend. Binding to <code>0.0.0.0</code> makes it reachable on the VM interface for this lab.</p><div class="command-grid service-grid"><div class="command-block"><div class="command-top"><span>On vm-api-01</span><button class="copy-command" type="button" data-copy="sudo apt update && sudo apt install python3 -y && mkdir -p ~/api-test && cd ~/api-test && nano server.py && python3 server.py">Copy setup</button></div><pre><code>sudo apt update
+sudo apt install python3 -y
+
+mkdir ~/api-test
+cd ~/api-test
+nano server.py</code></pre><div class="code-inset"><code>from http.server import BaseHTTPRequestHandler, HTTPServer
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"Hello from vm-api-01")
+
+server = HTTPServer(("0.0.0.0", 8080), Handler)
+print("API listening on port 8080")
+server.serve_forever()</code></div><pre><code>python3 server.py</code></pre></div><div class="service-check"><span class="section-kicker">Confirm listener</span><code>ss -tulpn | grep 8080</code><p>Expected: a process listening on <code>0.0.0.0:8080</code>.</p><div class="listening"><i></i><span>LISTEN</span><b>0.0.0.0:8080</b></div></div></div></div>
+      </section>
+
+      <section class="content-section" id="routing">
+        <div class="section-index">05 <span>Private route</span></div>
+        <div class="section-body"><h2>Azure routes it<br>inside the VNet.</h2><p class="lead">No Internet gateway or custom route is needed for basic communication between subnets in the same VNet. Azure's system routes know both address ranges are local.</p><div class="route-layers"><div><span>vm-web-01</span><code>10.10.1.4</code></div><i></i><div><span>VNet system route</span><code>10.10.0.0/16</code></div><i></i><div><span>snet-backend</span><code>10.10.2.0/24</code></div><i></i><div><span>vm-api-01</span><code>10.10.2.4</code></div></div><div class="command-block compact route-command"><div class="command-top"><span>On vm-web-01 / route inspection</span><button class="copy-command" type="button" data-copy="ip addr; ip route; ip route get API_PRIVATE_IP">Copy commands</button></div><pre><code>ip addr
+ip route
+ip route get API_PRIVATE_IP</code></pre></div></div>
+      </section>
+
+      <section class="content-section" id="test">
+        <div class="section-index">06 <span>Connectivity test</span></div>
+        <div class="section-body"><h2>Prove the private<br>application call.</h2><p class="lead">From the frontend VM, call the API's private address. This is the first real frontend-to-backend application flow in the project.</p><div class="test-flow private-test"><div><span>01 / vm-web-01</span><code>curl http://API_PRIVATE_IP:8080</code><small>request over the private VNet path</small></div><i></i><div class="success-card"><span>Expected response</span><strong>Hello from vm-api-01</strong><small>TCP 8080 reached the application</small></div></div><div class="port-tests"><div><span>Actual service</span><code>nc -vz API_PRIVATE_IP 8080</code><b class="success-text">succeeded</b></div><div><span>Different port</span><code>nc -vz API_PRIVATE_IP 5432</code><b>may fail</b></div><div><span>ICMP only</span><code>ping API_PRIVATE_IP</code><b>not definitive</b></div></div><div class="callout"><span>!</span><p><strong>Ping is not the application test.</strong> ICMP, TCP 8080, and TCP 5432 are different protocols and ports. Test the actual service with <code>curl</code> or <code>nc</code>.</p></div></div>
+      </section>
+
+      <section class="content-section" id="backend-nsg">
+        <div class="section-index">07 <span>Backend security</span></div>
+        <div class="section-body"><h2>Allow only<br>frontend → API.</h2><p class="lead">Now create the backend security boundary. The rule allows the entire frontend subnet to reach only TCP 8080 on the backend.</p><div class="backend-rule"><div class="rule-token source"><span>Source</span><b>10.10.1.0/24</b><small>frontend subnet</small></div><i></i><div class="rule-token port"><span>Port</span><b>TCP 8080</b><small>API service</small></div><i></i><div class="rule-token destination"><span>Destination</span><b>10.10.2.0/24</b><small>backend subnet</small></div><strong>ALLOW</strong></div><div class="command-block"><div class="command-top"><span>Azure CLI / nsg-backend</span><button class="copy-all" type="button">Copy all</button></div><pre><code>az network nsg create \
+  --resource-group rg-cloudnet-prod \
+  --name nsg-backend \
+  --location centralindia
+
+az network nsg rule create \
+  --resource-group rg-cloudnet-prod \
+  --nsg-name nsg-backend \
+  --name Allow-Frontend-To-Backend-8080 \
+  --priority 100 \
+  --source-address-prefixes 10.10.1.0/24 \
+  --destination-address-prefixes 10.10.2.0/24 \
+  --destination-port-ranges 8080 \
+  --protocol Tcp \
+  --access Allow \
+  --direction Inbound
+
+az network vnet subnet update \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-prod \
+  --name snet-backend \
+  --network-security-group nsg-backend</code></pre><span class="copy-note">The default inbound deny continues to reject Internet → backend TCP 8080.</span></div></div>
+      </section>
+
+      <section class="content-section" id="policy">
+        <div class="section-index">08 <span>Effective policy</span></div>
+        <div class="section-body"><h2>Three tiers,<br>three boundaries.</h2><p class="lead">The application path should grow inward. Each layer accepts only the traffic required by the layer behind it.</p><div class="tier-policy"><div><span>FRONTEND</span><b>nsg-frontend</b><code>Internet → 80 / 443</code><small>Your IP → 22</small></div><i></i><div><span>BACKEND</span><b>nsg-backend</b><code>10.10.1.0/24 → 8080</code><small>Internet → 8080 denied</small></div><i></i><div><span>DATABASE</span><b>nsg-database</b><code>10.10.2.0/24 → 5432</code><small>Internet → 5432 denied</small></div></div><div class="least-privilege">Internet → Frontend <strong>80 / 443</strong><span>→</span> Frontend → Backend <strong>8080</strong><span>→</span> Backend → Database <strong>5432</strong></div></div>
+      </section>
+
+      <section class="content-section" id="troubleshoot">
+        <div class="section-index">09 <span>Diagnosis</span></div>
+        <div class="section-body"><h2>Find the layer<br>that said no.</h2><p class="lead">If the curl fails, separate routing, NSG, and application problems instead of changing rules at random.</p><div class="diagnosis-grid"><div><b>01</b><span>Route</span><code>ip route get API_PRIVATE_IP</code></div><div><b>02</b><span>Protocol</span><code>ping API_PRIVATE_IP</code><small>ICMP is not conclusive</small></div><div><b>03</b><span>Port</span><code>nc -vz API_PRIVATE_IP 8080</code></div><div><b>04</b><span>Application</span><code>ss -tulpn | grep 8080</code></div><div><b>05</b><span>NSG rule</span><code>az network nsg rule list</code></div><div><b>06</b><span>Binding</span><code>0.0.0.0:8080</code></div></div><div class="model-note"><span>Connection refused vs timeout</span><p>A refused connection often means the host answered but no service is listening. A timeout can indicate filtering, routing, or a silent service.</p></div></div>
+      </section>
+
+      <section class="content-section" id="verify">
+        <div class="section-index">10 <span>Verification</span></div>
+        <div class="section-body"><h2>Verify the backend<br>from Azure.</h2><p class="lead">Confirm the NSG rule, subnet association, and NIC placement using CLI.</p><div class="verify-layout"><div class="command-block compact"><div class="command-top"><span>Azure CLI / backend evidence</span><button class="copy-command" type="button" data-copy="az network nsg rule list --resource-group rg-cloudnet-prod --nsg-name nsg-backend --output table; az network nsg rule show --resource-group rg-cloudnet-prod --nsg-name nsg-backend --name Allow-Frontend-To-Backend-8080 --output json; az network vnet subnet show --resource-group rg-cloudnet-prod --vnet-name vnet-cloudnet-prod --name snet-backend --query '{Subnet:name,NSG:networkSecurityGroup.id}' --output json; az vm nic list --resource-group rg-cloudnet-prod --vm-name vm-api-01 --output table">Copy commands</button></div><pre><code>az network nsg rule list \
+  --resource-group rg-cloudnet-prod \
+  --nsg-name nsg-backend \
+  --output table
+
+az network nsg rule show \
+  --resource-group rg-cloudnet-prod \
+  --nsg-name nsg-backend \
+  --name Allow-Frontend-To-Backend-8080 \
+  --output json
+
+az network vnet subnet show \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-prod \
+  --name snet-backend \
+  --query "{Subnet:name,NSG:networkSecurityGroup.id}" \
+  --output json
+
+az vm nic list \
+  --resource-group rg-cloudnet-prod \
+  --vm-name vm-api-01 \
+  --output table</code></pre></div><div class="result-card"><div class="result-top"><span class="result-dot"></span> Expected evidence</div><div class="result-row"><span>NSG rule</span><code>Allow-Frontend-To-Backend-8080</code></div><div class="result-row"><span>Source</span><code>10.10.1.0/24</code></div><div class="result-row"><span>Destination port</span><code>8080 / TCP</code></div><div class="result-row"><span>Subnet association</span><code>snet-backend → nsg-backend</code></div><div class="result-row"><span>API NIC</span><code>10.10.2.x</code></div></div></div></div>
+      </section>
+
+      <section class="content-section" id="complete">
+        <div class="section-index">11 <span>Checkpoint</span></div>
+        <div class="section-body"><h2>Can you explain<br>the private path?</h2><p class="lead">Do not move on until you can explain why the route works, what the backend NSG allows, and why a public API address is the wrong application dependency.</p><div class="completion checklist-light"><label><input type="checkbox"><span><b>vm-api-01 is in backend</b><small>vnet-cloudnet-prod / snet-backend</small></span></label><label><input type="checkbox"><span><b>Private IPs verified</b><small>10.10.1.x → 10.10.2.x</small></span></label><label><input type="checkbox"><span><b>API listening on 0.0.0.0:8080</b><small>Python test service responds</small></span></label><label><input type="checkbox"><span><b>nsg-backend allows frontend subnet</b><small>TCP 8080 / priority 100</small></span></label><label><input type="checkbox"><span><b>Private curl succeeded</b><small>web VM → API VM</small></span></label></div><div class="next-part"><span class="eyebrow"><span></span> Next / Part 05</span><h3>Azure Routing &amp; Route Tables</h3><p>Inspect effective routes, system routes, user-defined routes, and next hops. NSGs answer “can traffic pass?” Routing answers “where does traffic go?”</p></div></div>
+      </section>
+    </main>
+
+    <footer class="doc-footer"><a href="part-03-nsg.html">← Part 03</a><span>CloudNet DevOps Platform / Part 04</span><a href="../index.html">Architecture →</a></footer>
+  </div>
+  <script src="part-04.js"></script>
+</body>
+</html>
