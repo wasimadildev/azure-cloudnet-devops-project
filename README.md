@@ -17,7 +17,8 @@ Production-style Azure networking and DevOps platform built incrementally from a
 | 09 | Azure Private Endpoint and Private Link | Complete |
 | 10 | Azure Private DNS and VNet links | Complete |
 | 11 | Azure Application Gateway and Layer 7 ingress | Complete |
-| 12–18 | Azure Firewall, monitoring, Terraform, and CI/CD | Planned |
+| 12 | Azure Firewall and centralized inspection | Complete |
+| 13–18 | Hub-spoke, monitoring, Terraform, and CI/CD | Planned |
 
 Open the interactive lessons:
 
@@ -32,6 +33,7 @@ Open the interactive lessons:
 - [Part 09: Azure Private Endpoint](docs/part-09-private-endpoint.html)
 - [Part 10: Azure Private DNS](docs/part-10-private-dns.html)
 - [Part 11: Azure Application Gateway](docs/part-11-application-gateway.html)
+- [Part 12: Azure Firewall](docs/part-12-azure-firewall.html)
 - [Architecture overview](index.html)
 
 ## Architecture direction
