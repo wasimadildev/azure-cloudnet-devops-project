@@ -14,7 +14,8 @@ Production-style Azure networking and DevOps platform built incrementally from a
 | 06 | Azure NAT Gateway and outbound connectivity | Complete |
 | 07 | Azure Load Balancer and health probes | Complete |
 | 08 | Second VNet and environment isolation | Complete |
-| 09–18 | VNet peering, private networking, monitoring, Terraform, and CI/CD | Planned |
+| 09 | Azure Private Endpoint and Private Link | Complete |
+| 10–18 | Private DNS, monitoring, Terraform, and CI/CD | Planned |
 
 Open the interactive lessons:
 
@@ -26,6 +27,7 @@ Open the interactive lessons:
 - [Part 06: Azure NAT Gateway and outbound connectivity](docs/part-06-nat.html)
 - [Part 07: Azure Load Balancer](docs/part-07-load-balancer.html)
 - [Part 08: Second VNet](docs/part-08-second-vnet.html)
+- [Part 09: Azure Private Endpoint](docs/part-09-private-endpoint.html)
 - [Architecture overview](index.html)
 
 ## Architecture direction
