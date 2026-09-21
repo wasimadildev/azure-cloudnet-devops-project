@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CloudNet DevOps Platform Part 07: Azure Load Balancer">
+  <title>Part 07 / Load Balancer | CloudNet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="doc-header"><a class="brand" href="../index.html" aria-label="Back to CloudNet architecture"><span class="brand-mark"><i></i><i></i><i></i></span><span>cloudnet<span class="orange">.</span></span></a><nav class="header-nav" aria-label="Documentation navigation"><a href="../index.html">Architecture</a><a href="part-01-foundation.html">Part 01</a><a href="part-02-vms.html">Part 02</a><a href="part-03-nsg.html">Part 03</a><a href="part-04-private-communication.html">Part 04</a><a href="part-05-routing.html">Part 05</a><a href="part-06-nat.html">Part 06</a><a class="active" href="#top">Part 07</a><span class="status"><b></b> Availability lab</span></nav></header>
+    <main id="top">
+      <section class="doc-hero"><div class="hero-copy"><div class="eyebrow"><span></span> Learning path / 07 of 18</div><h1>Spread the<br><em>workload.</em></h1><p>Put two API VMs behind one public Load Balancer, then use health probes to keep new connections away from an unhealthy instance.</p><div class="hero-meta"><span>Difficulty <strong>Core</strong></span><span>Scope <strong>Availability</strong></span><span>Outcome <strong>lb-cloudnet-prod</strong></span></div></div><div class="hero-card lb-hero-card"><span class="card-label">Part 07 / target state</span><div class="lb-hero-stack"><div class="lb-public">pip-lb-cloudnet <small>public frontend IP</small></div><i></i><div class="lb-rule">rule-api-8080 <small>health-aware L4 flow</small></div><i></i><div class="lb-pool"><span>pool-api</span><b>vm-api-01</b><b>vm-api-02</b></div></div><span class="card-foot"><b>07</b> healthy pool / resilient ingress</span></div></section>
+      <div class="progress"><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="current"></span><small>07 / 18</small></div>
+
+      <section class="content-section" id="problem"><div class="section-index">01 <span>Why load balance</span></div><div class="section-body"><h2>One endpoint.<br>Multiple servers.</h2><p class="lead">A single API VM is a single failure point. A Load Balancer gives clients one frontend IP and distributes TCP/UDP flows across healthy backend instances.</p><div class="availability-compare"><article><span>BEFORE</span><h3>One backend</h3><div class="single-flow">Internet <i></i> vm-api-01</div><p>If API-01 fails, the application path fails.</p></article><div class="compare-arrow">→</div><article class="after-card"><span>AFTER</span><h3>Healthy pool</h3><div class="pool-flow">Load Balancer <i></i><b>API-01</b><b>API-02</b></div><p>If one instance fails, new flows can use the healthy instance.</p></article></div><div class="callout green"><span>↗</span><p><strong>Layer 4, not Layer 7.</strong> Azure Load Balancer distributes TCP/UDP flows. Application Gateway later handles HTTP host, path, TLS, and WAF decisions.</p></div></div></section>
+
+      <section class="content-section" id="components"><div class="section-index">02 <span>Core components</span></div><div class="section-body"><h2>Five pieces make<br>the path work.</h2><p class="lead">The frontend IP receives traffic, the pool holds servers, the probe measures health, and the rule connects the pieces.</p><div class="component-grid"><div><b>01</b><span>Frontend IP</span><small>Client-facing address</small></div><div><b>02</b><span>Backend pool</span><small>API-01 + API-02</small></div><div><b>03</b><span>Health probe</span><small>HTTP /health</small></div><div><b>04</b><span>LB rule</span><small>8080 → 8080</small></div><div><b>05</b><span>Inbound NAT</span><small>Admin-only option</small></div></div><div class="lb-equation"><code>pip-lb-cloudnet:8080</code><span>→</span><code>rule-api-8080</code><span>→</span><code>pool-api</code><span>→</span><code>healthy VM :8080</code></div></div></section>
+
+      <section class="content-section" id="api02"><div class="section-index">03 <span>Second backend</span></div><div class="section-body"><h2>Create<br>vm-api-02.</h2><p class="lead">Deploy the second Ubuntu VM in the same backend subnet. Keep public IP access temporary for learning; the target architecture exposes the Load Balancer, not individual API servers.</p><div class="value-grid"><div><span>Resource group</span><code>rg-cloudnet-prod</code></div><div><span>VM name</span><code>vm-api-02</code></div><div><span>Region</span><b>Same as VNet</b></div><div><span>Size</span><b>Standard_B1s</b></div><div><span>VNet</span><code>vnet-cloudnet-prod</code></div><div><span>Subnet</span><code>snet-backend</code></div><div><span>Image</span><b>Ubuntu 24.04 LTS</b></div><div><span>Service</span><b>HTTP :8080</b></div></div><div class="placement-compare"><div><span class="section-kicker">Target</span><b>Private API instances</b><code>API-01 + API-02</code></div><div><span class="section-kicker">Temporary lab access</span><b>Public IP for SSH</b><code>remove later</code></div></div></div></section>
+
+      <section class="content-section" id="health-service"><div class="section-index">04 <span>Health endpoint</span></div><div class="section-body"><h2>Make health<br>observable.</h2><p class="lead">Both API VMs must answer <code>/health</code> with HTTP 200. The probe checks the application path, not just whether the VM is powered on.</p><div class="health-grid"><div class="command-block"><div class="command-top"><span>On each API VM</span><button class="copy-command" type="button" data-copy="sudo apt update && sudo apt install python3 -y && python3 server.py">Copy setup</button></div><pre><code>sudo apt update
+sudo apt install python3 -y
+
+python3 server.py</code></pre><div class="code-inset"><code>from http.server import BaseHTTPRequestHandler, HTTPServer
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        body = b"API-01 HEALTHY" if self.server.name == "api-01" else b"API-02 HEALTHY"
+        if self.path == "/health":
+            self.send_response(200)
+        else:
+            self.send_response(200)
+            body = b"Hello from the API"
+        self.end_headers()
+        self.wfile.write(body)
+
+server = HTTPServer(("0.0.0.0", 8080), Handler)
+server.name = "api-01"  # change to api-02 on vm-api-02
+server.serve_forever()</code></div></div><div class="health-check"><span class="section-kicker">Local checks</span><code>curl http://localhost:8080</code><code>curl http://localhost:8080/health</code><code>ss -tulpn | grep 8080</code><div class="healthy-badge"><i></i> HTTP 200 / HEALTHY</div></div></div></div></section>
+
+      <section class="content-section" id="create"><div class="section-index">05 <span>Load Balancer</span></div><div class="section-body"><div class="build-heading"><div><h2>Connect the<br>load balancer.</h2><p class="lead">Use a Standard public Load Balancer with a static frontend IP, backend pool, HTTP probe, and TCP rule.</p></div><div class="tabs" role="tablist"><button class="tab active" data-tab="portal" role="tab">Portal path</button><button class="tab" data-tab="cli" role="tab">CLI inventory</button></div></div><div class="tab-panel active" data-panel="portal"><ol class="steps"><li><span>01</span><div><h3>Create the public IP</h3><p>Create <code>pip-lb-cloudnet</code> as IPv4, Standard SKU, Static assignment, in <code>rg-cloudnet-prod</code>.</p></div></li><li><span>02</span><div><h3>Create the Load Balancer</h3><p>Create public Standard Load Balancer <code>lb-cloudnet-prod</code> and select <code>pip-lb-cloudnet</code> as its frontend IP configuration.</p></div></li><li><span>03</span><div><h3>Create the backend pool</h3><p>Add pool <code>pool-api</code>, select <code>vnet-cloudnet-prod</code>, and add <code>vm-api-01</code> and <code>vm-api-02</code>.</p></div></li><li><span>04</span><div><h3>Create the health probe</h3><p>Use HTTP, port <code>8080</code>, path <code>/health</code>, interval 5 seconds, unhealthy threshold 2.</p></div></li><li><span>05</span><div><h3>Create the balancing rule</h3><p>Use frontend port <code>8080</code>, backend port <code>8080</code>, protocol TCP, pool <code>pool-api</code>, and probe <code>probe-api-health</code>.</p></div></li></ol></div><div class="tab-panel" data-panel="cli"><div class="command-block"><div class="command-top"><span>Azure CLI / inventory</span><button class="copy-all" type="button">Copy all</button></div><pre><code>az network lb list \
+  --resource-group rg-cloudnet-prod \
+  --output table
+
+az network lb address-pool list \
+  --resource-group rg-cloudnet-prod \
+  --lb-name lb-cloudnet-prod \
+  --output table
+
+az network lb probe list \
+  --resource-group rg-cloudnet-prod \
+  --lb-name lb-cloudnet-prod \
+  --output table
+
+az network lb rule list \
+  --resource-group rg-cloudnet-prod \
+  --lb-name lb-cloudnet-prod \
+  --output table</code></pre><span class="copy-note">The Portal is the primary build path for this lab; use CLI to inspect what Azure created.</span></div></div></div></section>
+
+      <section class="content-section" id="nsg"><div class="section-index">06 <span>NSG integration</span></div><div class="section-body"><h2>Let the probe<br>reach the pool.</h2><p class="lead">Health probes originate from the Azure Load Balancer service. Allow the <code>AzureLoadBalancer</code> service tag to reach TCP 8080 on the backend.</p><div class="probe-rule"><div><span>Source</span><b>AzureLoadBalancer</b><small>service tag</small></div><i></i><div><span>Destination</span><b>TCP 8080</b><small>backend API</small></div><i></i><div><span>Action</span><b>ALLOW</b><small>priority 100 or unused</small></div></div><div class="command-block compact"><div class="command-top"><span>Backend NSG / probe rule</span><button class="copy-command" type="button" data-copy="az network nsg rule create --resource-group rg-cloudnet-prod --nsg-name nsg-backend --name Allow-AzureLoadBalancer-8080 --priority 110 --source-address-prefixes AzureLoadBalancer --destination-port-ranges 8080 --protocol Tcp --access Allow --direction Inbound">Copy command</button></div><pre><code>az network nsg rule create \
+  --resource-group rg-cloudnet-prod \
+  --nsg-name nsg-backend \
+  --name Allow-AzureLoadBalancer-8080 \
+  --priority 110 \
+  --source-address-prefixes AzureLoadBalancer \
+  --destination-port-ranges 8080 \
+  --protocol Tcp \
+  --access Allow \
+  --direction Inbound</code></pre></div><div class="callout"><span>!</span><p><strong>Client traffic is separate from probe traffic.</strong> The probe must be healthy, and the actual public application flow must also be permitted by the backend security design.</p></div></div></section>
+
+      <section class="content-section" id="test"><div class="section-index">07 <span>Failure experiment</span></div><div class="section-body"><h2>Stop one.<br>Keep serving.</h2><p class="lead">This is the practical proof. Start both APIs, test the Load Balancer, stop API-01, wait for two failed probes, and test again.</p><div class="failure-flow"><div><span>01</span><b>Both healthy</b><code>curl LB_IP:8080</code><small>API-01 or API-02</small></div><i></i><div class="fail-card"><span>02</span><b>Stop API-01</b><code>Ctrl+C</code><small>probe becomes unhealthy</small></div><i></i><div class="success-card"><span>03</span><b>API-02 remains</b><code>curl LB_IP:8080</code><small>Hello from vm-api-02</small></div></div><div class="flow-hash"><span>Flow distribution</span><p>Load Balancer distributes flows, not individual HTTP requests. Repeated curls may stay on one backend because of tuple-based hashing.</p><code>Flow A → API-01 &nbsp;&nbsp; Flow B → API-02</code></div></div></section>
+
+      <section class="content-section" id="compare"><div class="section-index">08 <span>Architecture</span></div><div class="section-body"><h2>Load Balancer<br>or NAT Gateway?</h2><p class="lead">Both may have public IPs, but they solve opposite traffic-direction problems.</p><div class="compare-table"><div class="compare-head"><span>Capability</span><span>NAT Gateway</span><span>Load Balancer</span></div><div><b>Main purpose</b><span>Outbound connectivity</span><span>Inbound flow distribution</span></div><div><b>Typical direction</b><span>Private → Internet</span><span>Internet → backend pool</span></div><div><b>Health probes</b><span>No</span><span>Yes</span></div><div><b>Public IP role</b><span>Outbound source</span><span>Frontend destination</span></div><div><b>CloudNet resource</b><span>nat-cloudnet-backend</span><span>lb-cloudnet-prod</span></div></div><div class="packet-path"><span>INBOUND</span><b>Internet → Load Balancer → healthy API</b><span>OUTBOUND</span><b>API → NAT Gateway → Internet</b></div></div></section>
+
+      <section class="content-section" id="verify"><div class="section-index">09 <span>Verification</span></div><div class="section-body"><h2>Verify every<br>Load Balancer part.</h2><p class="lead">Inspect the Load Balancer, pool, probe, rule, and public IP. Then test the public endpoint.</p><div class="verify-layout"><div class="command-block compact"><div class="command-top"><span>Azure CLI / evidence</span><button class="copy-command" type="button" data-copy="az network lb show --resource-group rg-cloudnet-prod --name lb-cloudnet-prod --output json; az network lb address-pool list --resource-group rg-cloudnet-prod --lb-name lb-cloudnet-prod --output table; az network lb probe list --resource-group rg-cloudnet-prod --lb-name lb-cloudnet-prod --output table; az network lb rule list --resource-group rg-cloudnet-prod --lb-name lb-cloudnet-prod --output table; az network public-ip show --resource-group rg-cloudnet-prod --name pip-lb-cloudnet --query ipAddress --output tsv">Copy commands</button></div><pre><code>az network lb show \
+  --resource-group rg-cloudnet-prod \
+  --name lb-cloudnet-prod \
+  --output json
+
+az network lb address-pool list \
+  --resource-group rg-cloudnet-prod \
+  --lb-name lb-cloudnet-prod \
+  --output table
+
+az network lb probe list \
+  --resource-group rg-cloudnet-prod \
+  --lb-name lb-cloudnet-prod \
+  --output table
+
+az network lb rule list \
+  --resource-group rg-cloudnet-prod \
+  --lb-name lb-cloudnet-prod \
+  --output table
+
+curl http://$(az network public-ip show \
+  --resource-group rg-cloudnet-prod \
+  --name pip-lb-cloudnet \
+  --query ipAddress --output tsv):8080</code></pre></div><div class="result-card"><div class="result-top"><span class="result-dot"></span> Expected evidence</div><div class="result-row"><span>Frontend IP</span><code>pip-lb-cloudnet</code></div><div class="result-row"><span>Backend pool</span><code>vm-api-01 + vm-api-02</code></div><div class="result-row"><span>Probe</span><code>HTTP :8080 /health</code></div><div class="result-row"><span>Rule</span><code>8080 → 8080 / TCP</code></div><div class="result-row"><span>Failure test</span><code>healthy API still serves</code></div></div></div></div></section>
+
+      <section class="content-section" id="complete"><div class="section-index">10 <span>Checkpoint</span></div><div class="section-body"><h2>Can you explain<br>health?</h2><p class="lead">Do not move on until you can trace the public IP to the rule, pool, health probe, and selected backend VM.</p><div class="completion checklist-light"><label><input type="checkbox"><span><b>vm-api-02 created</b><small>same VNet / snet-backend</small></span></label><label><input type="checkbox"><span><b>Both APIs answer /health</b><small>HTTP 200 on port 8080</small></span></label><label><input type="checkbox"><span><b>Load Balancer configured</b><small>frontend IP / pool / probe / rule</small></span></label><label><input type="checkbox"><span><b>AzureLoadBalancer probe allowed</b><small>backend NSG permits TCP 8080</small></span></label><label><input type="checkbox"><span><b>Failure test passed</b><small>API-02 serves while API-01 is down</small></span></label></div><div class="next-part"><span class="eyebrow"><span></span> Next / Part 08</span><h3>Second VNet</h3><p>Create a non-overlapping development network and prepare the environment for VNet peering.</p></div></div></section>
+    </main>
+    <footer class="doc-footer"><a href="part-06-nat.html">← Part 06</a><span>CloudNet DevOps Platform / Part 07</span><a href="../index.html">Architecture →</a></footer>
+  </div>
+  <script src="part-07.js"></script>
+</body>
+</html>

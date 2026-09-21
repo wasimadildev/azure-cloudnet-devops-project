@@ -12,7 +12,8 @@ Production-style Azure networking and DevOps platform built incrementally from a
 | 04 | VM-to-VM private communication and backend NSG rules | Complete |
 | 05 | Azure routing and route tables | Complete |
 | 06 | Azure NAT Gateway and outbound connectivity | Complete |
-| 07–18 | Load balancing, peering, private networking, monitoring, Terraform, and CI/CD | Planned |
+| 07 | Azure Load Balancer and health probes | Complete |
+| 08–18 | VNet peering, private networking, monitoring, Terraform, and CI/CD | Planned |
 
 Open the interactive lessons:
 
@@ -22,6 +23,7 @@ Open the interactive lessons:
 - [Part 04: VM-to-VM private communication](docs/part-04-private-communication.html)
 - [Part 05: Azure routing and route tables](docs/part-05-routing.html)
 - [Part 06: Azure NAT Gateway and outbound connectivity](docs/part-06-nat.html)
+- [Part 07: Azure Load Balancer](docs/part-07-load-balancer.html)
 - [Architecture overview](index.html)
 
 ## Architecture direction
