@@ -15,7 +15,8 @@ Production-style Azure networking and DevOps platform built incrementally from a
 | 07 | Azure Load Balancer and health probes | Complete |
 | 08 | Second VNet and environment isolation | Complete |
 | 09 | Azure Private Endpoint and Private Link | Complete |
-| 10–18 | Private DNS, monitoring, Terraform, and CI/CD | Planned |
+| 10 | Azure Private DNS and VNet links | Complete |
+| 11–18 | Monitoring, Terraform, and CI/CD | Planned |
 
 Open the interactive lessons:
 
@@ -28,6 +29,7 @@ Open the interactive lessons:
 - [Part 07: Azure Load Balancer](docs/part-07-load-balancer.html)
 - [Part 08: Second VNet](docs/part-08-second-vnet.html)
 - [Part 09: Azure Private Endpoint](docs/part-09-private-endpoint.html)
+- [Part 10: Azure Private DNS](docs/part-10-private-dns.html)
 - [Architecture overview](index.html)
 
 ## Architecture direction
