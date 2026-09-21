@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CloudNet DevOps Platform Part 03: Azure NSG and network security notes">
+  <title>Part 03 / NSG Security | CloudNet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="doc-header">
+      <a class="brand" href="../index.html" aria-label="Back to CloudNet architecture"><span class="brand-mark"><i></i><i></i><i></i></span><span>cloudnet<span class="orange">.</span></span></a>
+      <nav class="header-nav" aria-label="Documentation navigation"><a href="../index.html">Architecture</a><a href="part-01-foundation.html">Part 01</a><a href="part-02-vms.html">Part 02</a><a class="active" href="#top">Part 03</a><span class="status"><b></b> Security lab</span></nav>
+    </header>
+
+    <main id="top">
+      <section class="doc-hero">
+        <div class="hero-copy"><div class="eyebrow"><span></span> Learning path / 03 of 18</div><h1>Make the<br><em>network intentional.</em></h1><p>Turn the working VM network into a controlled network with Azure Network Security Groups, explicit rules, priorities, and least-privilege access.</p><div class="hero-meta"><span>Difficulty <strong>Core</strong></span><span>Scope <strong>Security</strong></span><span>Outcome <strong>nsg-frontend</strong></span></div></div>
+        <div class="hero-card security-hero-card"><span class="card-label">Part 03 / target state</span><div class="security-stack"><div>INTERNET</div><i></i><div class="public-box">TCP 22 / 80 / 443</div><i></i><div class="nsg-box">nsg-frontend <small>subnet filter</small></div><i></i><div class="secure-vm">vm-web-01 <small>only permitted traffic</small></div></div><span class="card-foot"><b>03</b> filtered ingress / least privilege</span></div>
+      </section>
+
+      <div class="progress"><span class="done"></span><span class="done"></span><span class="done"></span><span class="current"></span><span></span><small>03 / 18</small></div>
+
+      <section class="content-section" id="architecture">
+        <div class="section-index">01 <span>Security model</span></div>
+        <div class="section-body"><h2>Filter traffic<br>where it enters.</h2><p class="lead">An NSG is a stateful set of rules evaluated against source, destination, port, protocol, direction, priority, and action.</p><div class="security-path"><div><span>Internet</span><small>source</small></div><i></i><div><span>Public IP</span><small>entry point</small></div><i></i><div class="filter-node"><span>nsg-frontend</span><small>allow / deny</small></div><i></i><div><span>vm-web-01</span><small>destination</small></div></div><div class="callout"><span>!</span><p><strong>Part 03 scope.</strong> We secure the frontend path first. Backend and database NSGs will later use private subnet sources instead of Internet-wide rules.</p></div></div>
+      </section>
+
+      <section class="content-section" id="association">
+        <div class="section-index">02 <span>Association</span></div>
+        <div class="section-body"><h2>Subnet or NIC?<br>Know the boundary.</h2><p class="lead">An NSG can be associated with a subnet, a NIC, or both. This lab begins with the subnet so every supported interface in the frontend segment receives the same baseline policy.</p><div class="association-grid"><article><span class="association-label">Subnet level</span><div class="association-diagram"><b>snet-frontend</b><i></i><strong>nsg-frontend</strong></div><p>One policy for resources in the subnet. This is the association used in this part.</p></article><article><span class="association-label">NIC level</span><div class="association-diagram"><b>vm-web-01 / NIC</b><i></i><strong>nsg-web-01</strong></div><p>Resource-specific policy. Useful when one interface needs an exception.</p></article><article class="both-card"><span class="association-label">Both</span><div class="association-diagram"><b>Subnet NSG</b><i></i><strong>NIC NSG</strong></div><p>Rules from both levels apply. Plan the combined result carefully.</p></article></div><div class="model-note"><span>Practical rule</span><p>Start with subnet-level policy for shared boundaries. Add NIC rules only when the exception is intentional and documented.</p></div></div>
+      </section>
+
+      <section class="content-section" id="rules">
+        <div class="section-index">03 <span>Rule anatomy</span></div>
+        <div class="section-body"><h2>Every rule answers<br>one question.</h2><p class="lead">A rule is a precise condition. For example: “Does TCP traffic from my public IP to destination port 22 get allowed?”</p><div class="rule-anatomy"><div class="rule-row"><span>Source</span><b>My IP address</b></div><div class="rule-row"><span>Source port</span><b>*</b></div><div class="rule-row"><span>Destination</span><b>Any</b></div><div class="rule-row"><span>Destination port</span><b>22</b></div><div class="rule-row"><span>Protocol</span><b>TCP</b></div><div class="rule-row"><span>Direction</span><b>Inbound</b></div><div class="rule-row priority-row"><span>Priority</span><b>100</b></div><div class="rule-row allow-row"><span>Action</span><b>Allow</b></div></div><div class="rule-equation"><code>source = my-ip</code><span>+</span><code>port = 22</code><span>+</span><code>protocol = TCP</code><span>→</span><strong>ALLOW</strong></div></div>
+      </section>
+
+      <section class="content-section" id="priority">
+        <div class="section-index">04 <span>Evaluation</span></div>
+        <div class="section-body"><h2>Lower number<br>speaks first.</h2><p class="lead">NSG rules are evaluated by priority. A lower number has higher priority, so an allow at 100 is evaluated before a deny at 200.</p><div class="priority-board"><div class="priority-rule allow-rule"><b>100</b><span>Allow SSH</span><code>TCP 22 / My IP</code><strong>ALLOW</strong></div><div class="priority-rule"><b>200</b><span>Allow HTTP</span><code>TCP 80 / Internet</code><strong>ALLOW</strong></div><div class="priority-rule"><b>210</b><span>Allow HTTPS</span><code>TCP 443 / Internet</code><strong>ALLOW</strong></div><div class="priority-rule default-rule"><b>65000+</b><span>DenyAllInBound</span><code>unmatched inbound</code><strong>DENY</strong></div></div><div class="callout green"><span>↗</span><p><strong>Default rules already include DenyAllInBound.</strong> Do not add a redundant “deny everything” rule for this lab. Let the Azure default handle unmatched inbound traffic.</p></div></div>
+      </section>
+
+      <section class="content-section" id="build">
+        <div class="section-index">05 <span>Build sequence</span></div>
+        <div class="section-body"><div class="build-heading"><div><h2>Create<br>nsg-frontend.</h2><p class="lead">Create the NSG in the same resource group and region as the VNet, then associate it with the frontend subnet.</p></div><div class="tabs" role="tablist"><button class="tab active" data-tab="portal" role="tab">Portal path</button><button class="tab" data-tab="cli" role="tab">Azure CLI</button></div></div><div class="tab-panel active" data-panel="portal"><ol class="steps"><li><span>01</span><div><h3>Create the network security group</h3><p>Open <b>Network security groups → Create</b>. Use resource group <code>rg-cloudnet-prod</code>, name <code>nsg-frontend</code>, and the same region as the VNet.</p></div></li><li><span>02</span><div><h3>Associate the subnet</h3><p>Open <code>nsg-frontend → Subnets → Associate</code>. Select <code>vnet-cloudnet-prod</code> and <code>snet-frontend</code>.</p><div class="step-detail"><b>Association</b><span>Subnet-level policy for the frontend boundary.</span></div></div></li><li><span>03</span><div><h3>Add only the required inbound rules</h3><p>Add SSH from <b>your IP only</b> at priority 100, HTTP from Internet at 200, and HTTPS from Internet at 210.</p></div></li><li><span>04</span><div><h3>Leave unmatched traffic denied</h3><p>Azure's default <code>DenyAllInBound</code> catches ports such as 8080 unless you explicitly add an allow rule.</p></div></li></ol></div><div class="tab-panel" data-panel="cli"><div class="command-block"><div class="command-top"><span>Azure CLI / nsg-frontend</span><button class="copy-all" type="button">Copy all</button></div><pre><code>az network nsg create \
+  --resource-group rg-cloudnet-prod \
+  --name nsg-frontend \
+  --location centralindia
+
+az network nsg rule create \
+  --resource-group rg-cloudnet-prod \
+  --nsg-name nsg-frontend \
+  --name Allow-SSH-MyIP \
+  --priority 100 \
+  --source-address-prefixes &lt;YOUR_PUBLIC_IP&gt;/32 \
+  --destination-port-ranges 22 \
+  --protocol Tcp \
+  --access Allow \
+  --direction Inbound
+
+az network nsg rule create \
+  --resource-group rg-cloudnet-prod \
+  --nsg-name nsg-frontend \
+  --name Allow-HTTP \
+  --priority 200 \
+  --source-address-prefixes Internet \
+  --destination-port-ranges 80 \
+  --protocol Tcp \
+  --access Allow \
+  --direction Inbound
+
+az network nsg rule create \
+  --resource-group rg-cloudnet-prod \
+  --nsg-name nsg-frontend \
+  --name Allow-HTTPS \
+  --priority 210 \
+  --source-address-prefixes Internet \
+  --destination-port-ranges 443 \
+  --protocol Tcp \
+  --access Allow \
+  --direction Inbound
+
+az network vnet subnet update \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-prod \
+  --name snet-frontend \
+  --network-security-group nsg-frontend</code></pre><span class="copy-note">Replace <code>&lt;YOUR_PUBLIC_IP&gt;</code> with your current public IPv4 address. Use a <code>/32</code> host prefix.</span></div></div></div>
+      </section>
+
+      <section class="content-section" id="policy">
+        <div class="section-index">06 <span>Least privilege</span></div>
+        <div class="section-body"><h2>Open what is<br>needed. Nothing more.</h2><p class="lead">The frontend may receive web traffic. SSH is restricted to your administration address. Everything else is denied by default.</p><div class="policy-table"><div class="policy-head"><span>Traffic</span><span>Port</span><span>Source</span><span>Action</span></div><div><b>SSH → web</b><code>22</code><span>Your IP /32</span><strong class="allow-text">ALLOW</strong></div><div><b>HTTP → web</b><code>80</code><span>Internet</span><strong class="allow-text">ALLOW</strong></div><div><b>HTTPS → web</b><code>443</code><span>Internet</span><strong class="allow-text">ALLOW</strong></div><div class="deny-row"><b>Anything else</b><code>*</code><span>Any</span><strong>DENY</strong></div></div><div class="future-policy"><span class="section-kicker">Future policy</span><p><code>10.10.1.0/24</code> → <code>10.10.2.0/24</code> on TCP <code>8080</code>, then backend <code>10.10.2.0/24</code> → database <code>10.10.3.0/24</code> on TCP <code>5432</code>.</p></div></div>
+      </section>
+
+      <section class="content-section" id="test">
+        <div class="section-index">07 <span>Practical tests</span></div>
+        <div class="section-body"><h2>Break it<br>on purpose.</h2><p class="lead">A security rule becomes real when you test both the permitted path and a port that has no allow rule.</p><div class="test-grid"><article><span class="test-number">01 / allowed</span><h3>SSH from your IP</h3><code>ssh azureuser@&lt;PUBLIC_IP&gt;</code><p>Should work when the source matches the <code>Allow-SSH-MyIP</code> rule.</p></article><article><span class="test-number">02 / allowed</span><h3>HTTP on port 80</h3><code>sudo apt install nginx -y</code><p>Start Nginx, then open <code>http://&lt;PUBLIC_IP&gt;</code> in your browser.</p></article><article class="blocked-test"><span class="test-number">03 / blocked</span><h3>Unlisted port 8080</h3><code>curl http://&lt;PUBLIC_IP&gt;:8080</code><p>Should fail because no inbound rule allows TCP 8080.</p></article></div><div class="test-path"><span>Browser / SSH client</span><i></i><span>Public IP</span><i></i><strong>nsg-frontend</strong><i></i><span>NIC → VM → service</span></div></div>
+      </section>
+
+      <section class="content-section" id="verify">
+        <div class="section-index">08 <span>Verification</span></div>
+        <div class="section-body"><h2>Verify what Azure<br>actually created.</h2><p class="lead">Use the Portal first to learn the UI, then use CLI to inspect the NSG rules and confirm the subnet association.</p><div class="verify-layout"><div class="command-block compact"><div class="command-top"><span>Azure CLI / verification</span><button class="copy-command" type="button" data-copy="az network nsg list --resource-group rg-cloudnet-prod --output table; az network nsg rule list --resource-group rg-cloudnet-prod --nsg-name nsg-frontend --output table; az network vnet subnet show --resource-group rg-cloudnet-prod --vnet-name vnet-cloudnet-prod --name snet-frontend --query '{Subnet:name,NSG:networkSecurityGroup.id}' --output json">Copy commands</button></div><pre><code>az network nsg list \
+  --resource-group rg-cloudnet-prod \
+  --output table
+
+az network nsg rule list \
+  --resource-group rg-cloudnet-prod \
+  --nsg-name nsg-frontend \
+  --output table
+
+az network vnet subnet show \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-prod \
+  --name snet-frontend \
+  --query "{Subnet:name,NSG:networkSecurityGroup.id}" \
+  --output json</code></pre></div><div class="result-card"><div class="result-top"><span class="result-dot"></span> Expected custom rules</div><div class="result-row header"><span>Name</span><span>Priority / port</span></div><div class="result-row"><span>Allow-SSH-MyIP</span><code>100 / 22</code></div><div class="result-row"><span>Allow-HTTP</span><code>200 / 80</code></div><div class="result-row"><span>Allow-HTTPS</span><code>210 / 443</code></div><div class="result-row"><span>Subnet association</span><code>nsg-frontend</code></div></div></div></div>
+      </section>
+
+      <section class="content-section" id="distinction">
+        <div class="section-index">09 <span>Architecture</span></div>
+        <div class="section-body"><h2>NSG is a filter,<br>not the whole firewall.</h2><p class="lead">NSGs provide subnet or NIC-level stateful filtering. Azure Firewall is a separate centralized control for inspection, network and application rules, logging, and shared policy.</p><div class="firewall-compare"><div><span>NSG</span><b>Subnet / NIC traffic filter</b><small>local boundary · priority rules · stateful</small></div><div class="compare-arrow">+</div><div><span>Azure Firewall</span><b>Centralized security service</b><small>inspection · policy · logging · routing</small></div></div><div class="future-security"><span>Final direction</span><p>Application Gateway + WAF → Azure Firewall → NSGs → frontend → backend → database.</p></div></div>
+      </section>
+
+      <section class="content-section" id="complete">
+        <div class="section-index">10 <span>Checkpoint</span></div>
+        <div class="section-body"><h2>Can you explain<br>the decision?</h2><p class="lead">Do not move to Part 04 until you can explain where the NSG is attached, why priority 100 wins, and why SSH should not be open to the world.</p><div class="completion checklist-light"><label><input type="checkbox"><span><b>nsg-frontend created</b><small>same resource group and region</small></span></label><label><input type="checkbox"><span><b>Subnet association confirmed</b><small>vnet-cloudnet-prod / snet-frontend</small></span></label><label><input type="checkbox"><span><b>SSH restricted to your IP</b><small>TCP 22 / priority 100</small></span></label><label><input type="checkbox"><span><b>HTTP and HTTPS allowed</b><small>TCP 80 / 443</small></span></label><label><input type="checkbox"><span><b>Blocked port tested</b><small>unlisted TCP 8080 is denied</small></span></label></div><div class="next-part"><span class="eyebrow"><span></span> Next / Part 04</span><h3>Private VM-to-VM communication</h3><p>Apply subnet-level security to frontend and backend traffic, then allow only the private application path between them.</p></div></div>
+      </section>
+    </main>
+
+    <footer class="doc-footer"><a href="part-02-vms.html">← Part 02</a><span>CloudNet DevOps Platform / Part 03</span><a href="../index.html">Architecture →</a></footer>
+  </div>
+  <script src="part-03.js"></script>
+</body>
+</html>

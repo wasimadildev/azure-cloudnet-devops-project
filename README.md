@@ -8,13 +8,14 @@ Production-style Azure networking and DevOps platform built incrementally from a
 | --- | --- | --- |
 | 01 | Azure VNet foundation and subnetting | Complete |
 | 02 | Ubuntu VMs and private VNet communication | Complete |
-| 03 | Azure NSGs and network security | Next |
+| 03 | Azure NSGs and network security | Complete |
 | 04–18 | Routing, NAT, load balancing, peering, private networking, monitoring, Terraform, and CI/CD | Planned |
 
 Open the interactive lessons:
 
 - [Part 01: Build the foundation](docs/part-01-foundation.html)
 - [Part 02: Deploy Ubuntu VMs](docs/part-02-vms.html)
+- [Part 03: Azure NSG and network security](docs/part-03-nsg.html)
 - [Architecture overview](index.html)
 
 ## Architecture direction
