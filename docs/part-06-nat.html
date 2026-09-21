@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CloudNet DevOps Platform Part 06: Azure NAT Gateway and outbound connectivity">
+  <title>Part 06 / NAT Gateway | CloudNet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="doc-header"><a class="brand" href="../index.html" aria-label="Back to CloudNet architecture"><span class="brand-mark"><i></i><i></i><i></i></span><span>cloudnet<span class="orange">.</span></span></a><nav class="header-nav" aria-label="Documentation navigation"><a href="../index.html">Architecture</a><a href="part-01-foundation.html">Part 01</a><a href="part-02-vms.html">Part 02</a><a href="part-03-nsg.html">Part 03</a><a href="part-04-private-communication.html">Part 04</a><a href="part-05-routing.html">Part 05</a><a class="active" href="#top">Part 06</a><span class="status"><b></b> Outbound lab</span></nav></header>
+    <main id="top">
+      <section class="doc-hero"><div class="hero-copy"><div class="eyebrow"><span></span> Learning path / 06 of 18</div><h1>Let private<br><em>workloads out.</em></h1><p>Give the backend controlled outbound Internet access through a predictable NAT Gateway public IP, without publishing the backend VM.</p><div class="hero-meta"><span>Difficulty <strong>Core</strong></span><span>Scope <strong>Outbound</strong></span><span>Outcome <strong>nat-cloudnet-backend</strong></span></div></div><div class="hero-card nat-hero-card"><span class="card-label">Part 06 / target state</span><div class="nat-hero-stack"><div class="nat-private">vm-api-01 <small>10.10.2.x / private</small></div><i></i><div class="snat-box">NAT Gateway <small>SNAT</small></div><i></i><div class="nat-public">pip-nat-cloudnet <small>static public IP</small></div><i></i><div>INTERNET</div></div><span class="card-foot"><b>06</b> controlled egress / no backend public IP</span></div></section>
+      <div class="progress"><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="current"></span><small>06 / 18</small></div>
+
+      <section class="content-section" id="problem"><div class="section-index">01 <span>Why NAT</span></div><div class="section-body"><h2>Outbound is not<br>inbound.</h2><p class="lead">The backend may need package updates, GitHub APIs, public registries, or external APIs. NAT Gateway lets it initiate those connections while keeping unsolicited Internet traffic out.</p><div class="direction-grid"><article><span>INBOUND</span><h3>Internet → VM</h3><div class="direction-flow">Internet <i></i> Public IP <i></i> vm-web-01</div><p>Someone on the Internet initiates the connection. NSGs decide whether it is allowed.</p></article><article><span>OUTBOUND</span><h3>VM → Internet</h3><div class="direction-flow outbound">vm-api-01 <i></i> NAT <i></i> github.com</div><p>The private VM initiates the request. NAT supplies the public source identity.</p></article></div><div class="callout green"><span>↗</span><p><strong>NAT Gateway is outbound connectivity, not inbound publishing.</strong> Return traffic belongs to the outbound flow; random Internet users cannot initiate a new connection through it.</p></div></div></section>
+
+      <section class="content-section" id="translation"><div class="section-index">02 <span>SNAT</span></div><div class="section-body"><h2>Translate the<br>source address.</h2><p class="lead">Private addresses such as <code>10.10.2.4</code> cannot be used as Internet source addresses. NAT Gateway performs source network address translation with its public IP.</p><div class="snat-diagram"><div><span>Before NAT</span><code>10.10.2.4:54321</code><small>private source</small></div><i></i><div class="snat-center"><span>SNAT</span><b>NAT Gateway</b><small>nat-cloudnet-backend</small></div><i></i><div><span>After NAT</span><code>20.x.x.x:54321</code><small>public source</small></div></div><div class="translation-note"><span>Destination stays the same</span><p>The external server sees the NAT public IP, while the VM keeps its private IP inside Azure.</p></div></div></section>
+
+      <section class="content-section" id="design"><div class="section-index">03 <span>CloudNet design</span></div><div class="section-body"><h2>Private subnet,<br>controlled exit.</h2><p class="lead">Associate the NAT Gateway with <code>snet-backend</code>. Every eligible private workload in that subnet can use the configured outbound IP.</p><div class="nat-path"><div><span>snet-backend</span><b>10.10.2.0/24</b><small>vm-api-01 / private</small></div><i></i><div class="nat-node"><span>nat-cloudnet-backend</span><b>SNAT</b><small>subnet association</small></div><i></i><div><span>pip-nat-cloudnet</span><b>Static IPv4</b><small>allowlist-friendly</small></div><i></i><div><span>Internet</span><b>HTTPS 443</b><small>outbound only</small></div></div><div class="no-route"><span>Important</span><strong>No custom UDR required</strong><p>Once associated with the subnet and attached to a public IP, NAT Gateway provides the outbound Internet path. It is not a route-table entry.</p></div></div></section>
+
+      <section class="content-section" id="create"><div class="section-index">04 <span>Build sequence</span></div><div class="section-body"><div class="build-heading"><div><h2>Create the<br>outbound path.</h2><p class="lead">Create a Standard static public IP, create the NAT Gateway, attach the IP, and associate the backend subnet.</p></div><div class="tabs" role="tablist"><button class="tab active" data-tab="portal" role="tab">Portal path</button><button class="tab" data-tab="cli" role="tab">Azure CLI</button></div></div><div class="tab-panel active" data-panel="portal"><ol class="steps"><li><span>01</span><div><h3>Create the NAT public IP</h3><p>Open <b>Public IP addresses → Create</b>. Use <code>pip-nat-cloudnet</code>, IPv4, <b>Standard</b> SKU, <b>Static</b> assignment, the same region, and <code>rg-cloudnet-prod</code>.</p><div class="step-detail"><b>Why static?</b><span>External APIs can allowlist one predictable egress address.</span></div></div></li><li><span>02</span><div><h3>Create the NAT Gateway</h3><p>Open <b>NAT gateways → Create</b>. Name it <code>nat-cloudnet-backend</code>, use the same region and resource group, and choose <b>StandardV2</b>.</p></div></li><li><span>03</span><div><h3>Attach outbound IP</h3><p>In the outbound IP settings, select <code>pip-nat-cloudnet</code>.</p></div></li><li><span>04</span><div><h3>Associate the backend subnet</h3><p>Select <code>vnet-cloudnet-prod</code> and <code>snet-backend</code>, then review and create.</p></div></li></ol></div><div class="tab-panel" data-panel="cli"><div class="command-block"><div class="command-top"><span>Azure CLI / NAT Gateway</span><button class="copy-all" type="button">Copy all</button></div><pre><code>az network public-ip create \
+  --resource-group rg-cloudnet-prod \
+  --name pip-nat-cloudnet \
+  --location centralindia \
+  --sku Standard \
+  --allocation-method Static
+
+az network nat gateway create \
+  --resource-group rg-cloudnet-prod \
+  --name nat-cloudnet-backend \
+  --location centralindia \
+  --public-ip-addresses pip-nat-cloudnet \
+  --sku StandardV2
+
+az network vnet subnet update \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-prod \
+  --name snet-backend \
+  --nat-gateway nat-cloudnet-backend</code></pre><span class="copy-note">Azure CLI parameters can vary with CLI version. Run <code>az network nat gateway create --help</code> if your installed version differs.</span></div></div></div></section>
+
+      <section class="content-section" id="test"><div class="section-index">05 <span>Outbound tests</span></div><div class="section-body"><h2>Prove the exit<br>from inside.</h2><p class="lead">SSH into <code>vm-api-01</code>. Its interface should still show a private address, while external services should see the NAT public IP.</p><div class="test-command-grid"><div class="command-block compact"><div class="command-top"><span>On vm-api-01</span><button class="copy-command" type="button" data-copy="ip addr; curl https://api.ipify.org; nslookup google.com; curl -I https://www.microsoft.com; curl https://api.github.com; sudo apt update">Copy tests</button></div><pre><code>ip addr
+curl https://api.ipify.org
+nslookup google.com
+getent hosts google.com
+curl -I https://www.microsoft.com
+curl https://api.github.com
+sudo apt update</code></pre></div><div class="test-results"><div><span>Private inside Azure</span><code>10.10.2.x</code><small>eth0 / private IP remains unchanged</small></div><div><span>Public outside Azure</span><code>20.x.x.x</code><small>matches pip-nat-cloudnet</small></div><div><span>Application proof</span><code>HTTP 200 / JSON</code><small>GitHub API and package servers respond</small></div></div></div><div class="callout"><span>!</span><p><strong>Compare both identities.</strong> <code>ip addr</code> shows the VM's private address; <code>api.ipify.org</code> shows the public egress address seen by the Internet.</p></div></div></section>
+
+      <section class="content-section" id="verify"><div class="section-index">06 <span>Azure verification</span></div><div class="section-body"><h2>Verify the<br>association.</h2><p class="lead">Confirm the NAT Gateway, public IP, subnet association, and the existing route table independently.</p><div class="verify-layout"><div class="command-block compact"><div class="command-top"><span>Azure CLI / evidence</span><button class="copy-command" type="button" data-copy="az network nat gateway show --resource-group rg-cloudnet-prod --name nat-cloudnet-backend --output table; az network public-ip show --resource-group rg-cloudnet-prod --name pip-nat-cloudnet --query '{Name:name,IP:ipAddress,Sku:sku.name}' --output table; az network vnet subnet show --resource-group rg-cloudnet-prod --vnet-name vnet-cloudnet-prod --name snet-backend --query '{Subnet:name,NATGateway:natGateway.id}' --output json; az network route-table route list --resource-group rg-cloudnet-prod --route-table-name rt-backend --output table">Copy commands</button></div><pre><code>az network nat gateway show \
+  --resource-group rg-cloudnet-prod \
+  --name nat-cloudnet-backend \
+  --output table
+
+az network public-ip show \
+  --resource-group rg-cloudnet-prod \
+  --name pip-nat-cloudnet \
+  --query "{Name:name,IP:ipAddress,Sku:sku.name}" \
+  --output table
+
+az network vnet subnet show \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-prod \
+  --name snet-backend \
+  --query "{Subnet:name,NATGateway:natGateway.id}" \
+  --output json
+
+az network route-table route list \
+  --resource-group rg-cloudnet-prod \
+  --route-table-name rt-backend \
+  --output table</code></pre></div><div class="result-card"><div class="result-top"><span class="result-dot"></span> Expected evidence</div><div class="result-row"><span>NAT Gateway</span><code>nat-cloudnet-backend</code></div><div class="result-row"><span>Public IP</span><code>pip-nat-cloudnet</code></div><div class="result-row"><span>SKU</span><code>Standard / StandardV2</code></div><div class="result-row"><span>Subnet</span><code>snet-backend</code></div><div class="result-row"><span>Route table</span><code>no NAT route entry</code></div></div></div></div></section>
+
+      <section class="content-section" id="responsibilities"><div class="section-index">07 <span>Responsibilities</span></div><div class="section-body"><h2>Four tools,<br>four questions.</h2><p class="lead">Keep the network mental model clean. Each Azure capability answers a different question.</p><div class="responsibility-grid"><div><b>Routing</b><span>WHERE?</span><small>Chooses the next hop.</small></div><div><b>NSG</b><span>ALLOWED?</span><small>Filters traffic.</small></div><div><b>NAT Gateway</b><span>HOW OUT?</span><small>Provides public egress.</small></div><div><b>DNS</b><span>WHO?</span><small>Maps names to IPs.</small></div></div><div class="warning-box"><span>Routing warning</span><p>A UDR for <code>0.0.0.0/0</code> to a virtual appliance or gateway can override NAT Gateway's direct Internet path. Add broad routes only when the firewall path is real.</p></div></div></section>
+
+      <section class="content-section" id="advanced"><div class="section-index">08 <span>Advanced note</span></div><div class="section-body"><h2>Outbound scale<br>has a limit.</h2><p class="lead">Every outbound connection needs a source-port translation. NAT Gateway provides a large SNAT port pool and can scale with additional public IPs or prefixes.</p><div class="snat-scale"><div><code>10.10.2.4:50001</code><span>private flow</span></div><i></i><div><b>SNAT port pool</b><span>translation mapping</span></div><i></i><div><code>20.x.x.x:30001</code><span>public flow</span></div></div><div class="scale-note"><strong>64,512</strong><span>documented SNAT ports per public IP address</span><small>Monitor for outbound port exhaustion as workloads and concurrent connections grow.</small></div></div></section>
+
+      <section class="content-section" id="complete"><div class="section-index">09 <span>Checkpoint</span></div><div class="section-body"><h2>Can you explain<br>the exit?</h2><p class="lead">Do not move on until you can explain why the backend can reach the Internet without having a public IP of its own.</p><div class="completion checklist-light"><label><input type="checkbox"><span><b>pip-nat-cloudnet created</b><small>Standard / static IPv4</small></span></label><label><input type="checkbox"><span><b>nat-cloudnet-backend created</b><small>StandardV2 / same region</small></span></label><label><input type="checkbox"><span><b>Backend subnet associated</b><small>snet-backend → NAT Gateway</small></span></label><label><input type="checkbox"><span><b>Outbound IP verified</b><small>api.ipify.org matches NAT IP</small></span></label><label><input type="checkbox"><span><b>NSG and UDR distinction understood</b><small>NAT is not a route-table entry</small></span></label></div><div class="next-part"><span class="eyebrow"><span></span> Next / Part 07</span><h3>Azure Load Balancer</h3><p>Put multiple backend VMs behind one frontend endpoint with a load-balancing rule, health probe, backend pool, and VM network interfaces.</p></div></div></section>
+    </main>
+    <footer class="doc-footer"><a href="part-05-routing.html">← Part 05</a><span>CloudNet DevOps Platform / Part 06</span><a href="../index.html">Architecture →</a></footer>
+  </div>
+  <script src="part-06.js"></script>
+</body>
+</html>
