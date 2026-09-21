@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CloudNet DevOps Platform Part 05: Azure routing and route tables">
+  <title>Part 05 / Routing | CloudNet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="doc-header">
+      <a class="brand" href="../index.html" aria-label="Back to CloudNet architecture"><span class="brand-mark"><i></i><i></i><i></i></span><span>cloudnet<span class="orange">.</span></span></a>
+      <nav class="header-nav" aria-label="Documentation navigation"><a href="../index.html">Architecture</a><a href="part-01-foundation.html">Part 01</a><a href="part-02-vms.html">Part 02</a><a href="part-03-nsg.html">Part 03</a><a href="part-04-private-communication.html">Part 04</a><a class="active" href="#top">Part 05</a><span class="status"><b></b> Routing lab</span></nav>
+    </header>
+
+    <main id="top">
+      <section class="doc-hero">
+        <div class="hero-copy"><div class="eyebrow"><span></span> Learning path / 05 of 18</div><h1>Find the<br><em>right path.</em></h1><p>Separate routing from security, inspect Azure's system routes, and create a safe user-defined route without disrupting the working application network.</p><div class="hero-meta"><span>Difficulty <strong>Core</strong></span><span>Scope <strong>Routing</strong></span><span>Outcome <strong>rt-backend</strong></span></div></div>
+        <div class="hero-card routing-hero-card"><span class="card-label">Part 05 / target state</span><div class="routing-hero-stack"><div>vm-web-01 <small>10.10.1.x</small></div><i></i><div class="route-hero-line">system route <small>10.10.0.0/16 → VNet</small></div><i></i><div>vm-api-01 <small>10.10.2.x</small></div><div class="udr-hero">UDR / rt-backend <small>10.30.0.0/16 → appliance</small></div></div><span class="card-foot"><b>05</b> route inspection / safe UDR</span></div>
+      </section>
+
+      <div class="progress"><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><small>05 / 18</small></div>
+
+      <section class="content-section" id="distinction">
+        <div class="section-index">01 <span>Core distinction</span></div>
+        <div class="section-body"><h2>Routing says<br>where. NSG says<br>whether.</h2><p class="lead">A route chooses the next hop for a destination. An NSG then evaluates whether the traffic is allowed to reach the resource and port.</p><div class="routing-vs-nsg"><article class="routing-card"><span>ROUTING</span><h3>Where should traffic go?</h3><div class="route-mini"><b>10.10.2.4</b><i></i><strong>Virtual network</strong><i></i><b>Backend</b></div></article><div class="versus">VS</div><article class="nsg-card"><span>NSG</span><h3>Is traffic permitted?</h3><div class="route-mini"><b>10.10.1.4</b><i></i><strong>TCP 8080?</strong><i></i><b>ALLOW / DROP</b></div></article></div><div class="callout"><span>!</span><p><strong>Both can be correct and the connection can still fail.</strong> A valid route does not override an NSG denial, and an allow rule cannot help if traffic is sent to the wrong next hop.</p></div></div>
+      </section>
+
+      <section class="content-section" id="cidr">
+        <div class="section-index">02 <span>CIDR review</span></div>
+        <div class="section-body"><h2>Routes live inside<br>address space.</h2><p class="lead">The production VNet is a <code>/16</code> containing clean <code>/24</code> subnet ranges. Azure uses that address plan to build system routes automatically.</p><div class="cidr-routing"><div class="cidr-root"><span>VNet</span><b>10.10.0.0/16</b><small>10.10.0.0 → 10.10.255.255</small></div><div class="cidr-children"><div><b>10.10.1.0/24</b><span>frontend</span></div><div><b>10.10.2.0/24</b><span>backend</span></div><div><b>10.10.3.0/24</b><span>database</span></div><div><b>10.10.10.0/24</b><span>management</span></div></div></div><div class="route-equation"><code>10.10.0.0/16</code><span>→</span><strong>Virtual network</strong><span>→</span><code>10.10.2.4</code></div></div>
+      </section>
+
+      <section class="content-section" id="system-routes">
+        <div class="section-index">03 <span>System routes</span></div>
+        <div class="section-body"><h2>Azure already<br>knows the VNet.</h2><p class="lead">When the VNet is created, Azure supplies system routes. You do not need to manually create a route to every VM in a same-VNet subnet.</p><div class="system-route-map"><div><span>vm-web-01</span><code>10.10.1.4</code></div><i></i><div class="system-route-center"><span>Azure virtual network fabric</span><strong>10.10.0.0/16</strong><small>Next hop: Virtual network</small></div><i></i><div><span>vm-api-01</span><code>10.10.2.4</code></div></div><div class="route-meaning"><span>System route meaning</span><p>Traffic destined for the VNet address space stays inside the Azure virtual network.</p></div></div>
+      </section>
+
+      <section class="content-section" id="linux">
+        <div class="section-index">04 <span>Linux inspection</span></div>
+        <div class="section-body"><h2>Ask Linux which<br>route it will use.</h2><p class="lead">On <code>vm-web-01</code>, inspect interfaces, routes, the selected path to the API, neighbors, and the actual application port.</p><div class="command-grid"><div class="command-block compact"><div class="command-top"><span>On vm-web-01</span><button class="copy-command" type="button" data-copy="ip addr; ip route; ip route get API_PRIVATE_IP; ip neigh; ping API_PRIVATE_IP; nc -vz API_PRIVATE_IP 8080; curl http://API_PRIVATE_IP:8080">Copy commands</button></div><pre><code>ip addr
+ip route
+ip route get API_PRIVATE_IP
+ip neigh
+ping API_PRIVATE_IP
+nc -vz API_PRIVATE_IP 8080
+curl http://API_PRIVATE_IP:8080</code></pre></div><div class="command-meaning"><div><code>ip addr</code><span>What interfaces and IPs do I have?</span></div><div><code>ip route</code><span>What routes are installed?</span></div><div><code>ip route get DESTINATION</code><span>Which path will Linux choose?</span></div><div><code>nc -vz IP PORT</code><span>Can I establish TCP?</span></div><div><code>curl URL</code><span>Does the application respond?</span></div></div></div><div class="route-output"><span class="section-kicker">Example route decision</span><code>10.10.2.4 via 10.10.1.1 dev eth0 src 10.10.1.4</code><div><b>destination</b><b>gateway</b><b>interface</b><b>source</b></div></div></div>
+      </section>
+
+      <section class="content-section" id="effective">
+        <div class="section-index">05 <span>Azure inspection</span></div>
+        <div class="section-body"><h2>Effective routes<br>are the evidence.</h2><p class="lead">An effective route is what Azure actually applies to a NIC after combining system routes, user-defined routes, and other networking behavior.</p><div class="effective-flow"><div><span>vm-web-01</span><small>Network interface</small></div><i></i><div class="effective-highlight"><span>Effective routes</span><small>Address prefix / next hop / source</small></div><i></i><div><span>Destination</span><small>10.10.2.4</small></div></div><div class="portal-steps"><span>Portal path</span><b>Virtual Machines → vm-web-01 → Networking → NIC → Effective routes</b></div></div>
+      </section>
+
+      <section class="content-section" id="udr">
+        <div class="section-index">06 <span>User-defined route</span></div>
+        <div class="section-body"><div class="build-heading"><div><h2>Add a route<br>without breaking traffic.</h2><p class="lead">Create <code>rt-backend</code>, associate it with the backend subnet, and add a deliberately isolated lab route for <code>10.30.0.0/16</code>.</p></div><div class="tabs" role="tablist"><button class="tab active" data-tab="portal" role="tab">Portal path</button><button class="tab" data-tab="cli" role="tab">Azure CLI</button></div></div><div class="tab-panel active" data-panel="portal"><ol class="steps"><li><span>01</span><div><h3>Create the route table</h3><p>Open <b>Route tables → Create</b>. Use resource group <code>rg-cloudnet-prod</code>, name <code>rt-backend</code>, and the same region as the VNet.</p></div></li><li><span>02</span><div><h3>Add the safe lab route</h3><p>Create <code>lab-route-example</code> with destination <code>10.30.0.0/16</code>, next hop type <b>Virtual appliance</b>, and next hop IP <code>10.10.10.4</code>.</p><div class="step-detail"><b>Important</b><span>No appliance exists at this address yet. Inspect the configuration, but do not expect connectivity.</span></div></div></li><li><span>03</span><div><h3>Associate the backend subnet</h3><p>Open <code>rt-backend → Subnets → Associate</code>, then select <code>vnet-cloudnet-prod</code> and <code>snet-backend</code>.</p></div></li><li><span>04</span><div><h3>Do not add a default route</h3><p>Never point <code>0.0.0.0/0</code> at a nonexistent appliance. A broad route can break VM outbound connectivity.</p></div></li></ol></div><div class="tab-panel" data-panel="cli"><div class="command-block"><div class="command-top"><span>Azure CLI / rt-backend</span><button class="copy-all" type="button">Copy all</button></div><pre><code>az network route-table create \
+  --resource-group rg-cloudnet-prod \
+  --name rt-backend \
+  --location centralindia
+
+az network route-table route create \
+  --resource-group rg-cloudnet-prod \
+  --route-table-name rt-backend \
+  --name lab-route-example \
+  --address-prefix 10.30.0.0/16 \
+  --next-hop-type VirtualAppliance \
+  --next-hop-ip-address 10.10.10.4
+
+az network vnet subnet update \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-prod \
+  --name snet-backend \
+  --route-table rt-backend</code></pre><span class="copy-note">The lab route demonstrates UDR configuration. Remove it after inspection if you do not need it.</span></div></div></div>
+      </section>
+
+      <section class="content-section" id="matching">
+        <div class="section-index">07 <span>Route selection</span></div>
+        <div class="section-body"><h2>Specific beats<br>broad.</h2><p class="lead">When multiple routes match, networking uses the longest prefix match. A <code>/24</code> is more specific than a <code>/16</code>.</p><div class="prefix-board"><div><span>Route A / broad</span><code>10.10.0.0/16</code><small>Virtual network</small></div><div class="prefix-destination"><span>Destination</span><b>10.10.2.50</b><small>matches both</small></div><div class="specific-route"><span>Route B / specific</span><code>10.10.2.0/24</code><small>Virtual appliance</small></div></div><div class="match-result"><span>Winner</span><strong>10.10.2.0/24</strong><p>The /24 route is more specific, so it can direct traffic differently from the broader /16 route.</p></div></div>
+      </section>
+
+      <section class="content-section" id="next-hops">
+        <div class="section-index">08 <span>Next hops</span></div>
+        <div class="section-body"><h2>Routes have<br>different exits.</h2><p class="lead">Azure route tables support several next-hop types. Choose the one that matches the intended architecture.</p><div class="next-hop-grid"><div><b>Virtual network</b><code>VirtualNetwork</code><small>Stay inside the VNet.</small></div><div><b>Internet</b><code>Internet</code><small>Use the Azure Internet path.</small></div><div><b>Virtual appliance</b><code>VirtualAppliance</code><small>Send to Firewall or NVA.</small></div><div><b>None</b><code>None</code><small>Blackhole the destination.</small></div></div><div class="firewall-route"><span>Future hub-and-spoke route</span><code>10.20.0.0/16 → Virtual appliance → 10.0.1.4</code><small>Production traffic forced through Azure Firewall.</small></div></div>
+      </section>
+
+      <section class="content-section" id="verify">
+        <div class="section-index">09 <span>Verification</span></div>
+        <div class="section-body"><h2>Verify the route<br>from both sides.</h2><p class="lead">Inspect the route table, its route, and the backend subnet association. Then confirm the Linux path and application still work.</p><div class="verify-layout"><div class="command-block compact"><div class="command-top"><span>Azure CLI / route evidence</span><button class="copy-command" type="button" data-copy="az network route-table list --resource-group rg-cloudnet-prod --output table; az network route-table route list --resource-group rg-cloudnet-prod --route-table-name rt-backend --output table; az network vnet subnet show --resource-group rg-cloudnet-prod --vnet-name vnet-cloudnet-prod --name snet-backend --query '{Subnet:name,RouteTable:routeTable.id}' --output json">Copy commands</button></div><pre><code>az network route-table list \
+  --resource-group rg-cloudnet-prod \
+  --output table
+
+az network route-table route list \
+  --resource-group rg-cloudnet-prod \
+  --route-table-name rt-backend \
+  --output table
+
+az network vnet subnet show \
+  --resource-group rg-cloudnet-prod \
+  --vnet-name vnet-cloudnet-prod \
+  --name snet-backend \
+  --query "{Subnet:name,RouteTable:routeTable.id}" \
+  --output json</code></pre></div><div class="result-card"><div class="result-top"><span class="result-dot"></span> Expected evidence</div><div class="result-row"><span>Route table</span><code>rt-backend</code></div><div class="result-row"><span>Lab route</span><code>10.30.0.0/16</code></div><div class="result-row"><span>Next hop</span><code>10.10.10.4</code></div><div class="result-row"><span>Association</span><code>snet-backend</code></div><div class="result-row"><span>Application path</span><code>curl :8080 works</code></div></div></div></div>
+      </section>
+
+      <section class="content-section" id="troubleshoot">
+        <div class="section-index">10 <span>Diagnosis</span></div>
+        <div class="section-body"><h2>Trace the packet,<br>then the policy.</h2><p class="lead">When the curl fails, inspect the application, TCP port, Linux route, Azure effective route, and NSG in that order.</p><div class="routing-diagnosis"><div><b>01</b><span>Application</span><code>ss -tulpn</code></div><div><b>02</b><span>TCP port</span><code>nc -vz IP 8080</code></div><div><b>03</b><span>Linux route</span><code>ip route get IP</code></div><div><b>04</b><span>Azure route</span><code>Effective routes</code></div><div><b>05</b><span>NSG</span><code>nsg rule list</code></div><div><b>06</b><span>Service health</span><code>curl URL</code></div></div><div class="callout"><span>!</span><p><strong>Remove dangerous lab routes.</strong> If no appliance exists at <code>10.10.10.4</code>, delete <code>lab-route-example</code>. Never add <code>0.0.0.0/0 → VirtualAppliance</code> until the firewall path is real.</p></div></div>
+      </section>
+
+      <section class="content-section" id="complete">
+        <div class="section-index">11 <span>Checkpoint</span></div>
+        <div class="section-body"><h2>Can you answer<br>where it goes?</h2><p class="lead">Do not move on until you can separate routing from security and explain the route selected for the private API call.</p><div class="completion checklist-light"><label><input type="checkbox"><span><b>Linux routes inspected</b><small>ip route / ip route get</small></span></label><label><input type="checkbox"><span><b>Effective routes inspected</b><small>NIC → Effective routes</small></span></label><label><input type="checkbox"><span><b>rt-backend created</b><small>associated with snet-backend</small></span></label><label><input type="checkbox"><span><b>Safe lab route verified</b><small>10.30.0.0/16 → 10.10.10.4</small></span></label><label><input type="checkbox"><span><b>NSG and routing explained</b><small>WHERE? versus ALLOWED?</small></span></label></div><div class="next-part"><span class="eyebrow"><span></span> Next / Part 06</span><h3>Azure NAT Gateway + Outbound Connectivity</h3><p>Learn inbound versus outbound access, remove backend public IPs, and provide controlled Internet egress with NAT Gateway.</p></div></div>
+      </section>
+    </main>
+
+    <footer class="doc-footer"><a href="part-04-private-communication.html">← Part 04</a><span>CloudNet DevOps Platform / Part 05</span><a href="../index.html">Architecture →</a></footer>
+  </div>
+  <script src="part-05.js"></script>
+</body>
+</html>
