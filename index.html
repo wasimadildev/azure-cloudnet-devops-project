@@ -140,6 +140,58 @@
       <div class="detail-specs" id="detail-specs"><span>ROLE<b>Ingress</b></span><span>ACCESS<b>Public</b></span><span>FLOW<b>Inbound</b></span></div>
     </section>
 
+    <section class="architecture-detail" aria-labelledby="flow-title">
+      <div class="section-heading detail-heading">
+        <div><span class="section-kicker">End-to-end contract</span><h2 id="flow-title">How the platform works</h2></div>
+        <span class="detail-index">CN / 013</span>
+      </div>
+      <div class="flow-contract">
+        <article><span class="contract-number">01</span><b>Ingress</b><p>Internet → Application Gateway → HTTPS listener / WAF</p></article>
+        <i></i>
+        <article><span class="contract-number">02</span><b>Inspection</b><p>Gateway → hub → Azure Firewall → spoke route</p></article>
+        <i></i>
+        <article><span class="contract-number">03</span><b>Application</b><p>Frontend subnet → backend NSG → API :8080</p></article>
+        <i></i>
+        <article><span class="contract-number">04</span><b>Data</b><p>Backend → Private DNS → Private Endpoint → Storage</p></article>
+        <i></i>
+        <article><span class="contract-number">05</span><b>Egress</b><p>Private workload → NAT Gateway → static public IP</p></article>
+      </div>
+      <div class="architecture-notes">
+        <div><span>WHERE?</span><b>Route tables / UDRs</b><small>Choose the next hop.</small></div>
+        <div><span>ALLOWED?</span><b>NSGs / Firewall</b><small>Permit or deny the path.</small></div>
+        <div><span>WHO?</span><b>Private DNS</b><small>Resolve names to private IPs.</small></div>
+        <div><span>HOW OUT?</span><b>NAT Gateway</b><small>Give private resources controlled egress.</small></div>
+      </div>
+    </section>
+
+    <section class="learning-record" aria-labelledby="learning-title">
+      <div class="section-heading learning-heading">
+        <div><span class="section-kicker">Project record / 13 complete</span><h2 id="learning-title">What you learned<br><em>and practiced.</em></h2></div>
+        <p>Each part adds one infrastructure capability to the same CloudNet platform. The notes are linked so the diagram remains a working study index.</p>
+      </div>
+      <div class="learning-grid">
+        <a class="learning-card complete-card" href="docs/part-01-foundation.html"><span>01</span><div><b>VNet foundation</b><small>Resource group · VNet · four subnets · CIDR plan</small></div><strong>DONE</strong></a>
+        <a class="learning-card complete-card" href="docs/part-02-vms.html"><span>02</span><div><b>Ubuntu VMs</b><small>NIC · private/public IP · DHCP · Linux routes · TCP tests</small></div><strong>DONE</strong></a>
+        <a class="learning-card complete-card" href="docs/part-03-nsg.html"><span>03</span><div><b>NSG security</b><small>Inbound rules · priorities · subnet/NIC scope · default deny</small></div><strong>DONE</strong></a>
+        <a class="learning-card complete-card" href="docs/part-04-private-communication.html"><span>04</span><div><b>Private VM traffic</b><small>Frontend → API · backend NSG · private TCP 8080</small></div><strong>DONE</strong></a>
+        <a class="learning-card complete-card" href="docs/part-05-routing.html"><span>05</span><div><b>Routing / UDR</b><small>System routes · effective routes · next hops · prefix match</small></div><strong>DONE</strong></a>
+        <a class="learning-card complete-card" href="docs/part-06-nat.html"><span>06</span><div><b>NAT Gateway</b><small>Outbound SNAT · static egress IP · private backend exit</small></div><strong>DONE</strong></a>
+        <a class="learning-card complete-card" href="docs/part-07-load-balancer.html"><span>07</span><div><b>Load Balancer</b><small>L4 flows · pool · health probe · failure experiment</small></div><strong>DONE</strong></a>
+        <a class="learning-card complete-card" href="docs/part-08-second-vnet.html"><span>08</span><div><b>Second VNet</b><small>Development CIDR · isolation · peering preparation</small></div><strong>DONE</strong></a>
+        <a class="learning-card complete-card" href="docs/part-09-private-endpoint.html"><span>09</span><div><b>Private Endpoint</b><small>Storage · Private Link · endpoint NIC · private PaaS</small></div><strong>DONE</strong></a>
+        <a class="learning-card complete-card" href="docs/part-10-private-dns.html"><span>10</span><div><b>Private DNS</b><small>Zone · A record · VNet link · private hostname resolution</small></div><strong>DONE</strong></a>
+        <a class="learning-card complete-card" href="docs/part-11-application-gateway.html"><span>11</span><div><b>Application Gateway</b><small>L7 ingress · TLS · listeners · path routing · WAF</small></div><strong>DONE</strong></a>
+        <a class="learning-card complete-card" href="docs/part-12-azure-firewall.html"><span>12</span><div><b>Azure Firewall</b><small>Central inspection · policy collections · UDR steering</small></div><strong>DONE</strong></a>
+        <a class="learning-card complete-card" href="docs/part-13-hub-spoke.html"><span>13</span><div><b>Hub-and-spoke</b><small>Shared services · two-sided peering · transit governance</small></div><strong>DONE</strong></a>
+        <div class="learning-card next-card"><span>14</span><div><b>Azure Monitoring</b><small>Metrics · logs · Network Watcher · operational evidence</small></div><strong>NEXT</strong></div>
+      </div>
+    </section>
+
+    <section class="roadmap-panel" aria-labelledby="roadmap-title">
+      <div><span class="section-kicker">Remaining build</span><h2 id="roadmap-title">From architecture<br>to operation.</h2><p>Parts 14–18 turn the designed network into an observable, repeatable DevOps platform.</p></div>
+      <div class="roadmap-list"><div><span>14</span><b>Monitoring</b><small>Azure Monitor · Log Analytics · Network Watcher</small></div><div><span>15</span><b>Terraform</b><small>Infrastructure as Code for every shared resource</small></div><div><span>16</span><b>Application and Docker</b><small>Nginx · Node.js · PostgreSQL · container workflow</small></div><div><span>17</span><b>GitHub Actions</b><small>Validate, plan, and deploy through CI/CD</small></div><div><span>18</span><b>Portfolio release</b><small>Evidence, screenshots, runbooks, and final architecture</small></div></div>
+    </section>
+
     <footer class="footer"><span>CloudNet DevOps Platform</span><span>Architecture / Foundation layer</span><span>Azure · Terraform · GitHub Actions</span></footer>
   </main>
   <script src="script.js"></script>
